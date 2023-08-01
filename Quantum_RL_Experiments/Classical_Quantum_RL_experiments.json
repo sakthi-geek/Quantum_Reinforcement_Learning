@@ -1,0 +1,539 @@
+{
+"version": "v1.0",
+"experiments": 
+    [
+        {"baseline_rl_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_1",
+                    "rl_agent": "policy_gradient_reinforce",
+                    "rl_variant": "classical",
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"   
+                },
+                {
+                    "experiment_id": "experiment_2a",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_2b",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_2c",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_3",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "classical",
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_4a",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_4b",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_4c",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_5",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "classical",
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_6a",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_6b",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_6c",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+            ]
+        },
+
+        {"policy_gradient_n_layer_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_7a",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_7b",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_7c",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_8a",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_8b",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_8c",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+                
+            ]
+        },
+
+        {"deep_q_learning_n_layer_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_9a",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                },
+                {
+                    "experiment_id": "experiment_9b",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                },
+                {
+                    "experiment_id": "experiment_9c",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                },
+                {
+                    "experiment_id": "experiment_10a",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                },
+                {
+                    "experiment_id": "experiment_10b",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                },
+                {
+                    "experiment_id": "experiment_10c",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+            ]
+        },
+
+        {"actor_critic_n_layer_experiments":
+            [   
+                {
+                    "experiment_id": "experiment_11a",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                }, 
+                {
+                    "experiment_id": "experiment_11b",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                }, 
+                {
+                    "experiment_id": "experiment_11c",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                }, 
+                {
+                    "experiment_id": "experiment_12a",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                }, 
+                {
+                    "experiment_id": "experiment_12b",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                },              
+                {
+                    "experiment_id": "experiment_12c",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }                
+                
+            ]
+        },
+        {"policy_gradient_qpc_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_13a",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_13b",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_13c",
+                    "rl_agent": "policy_gradient",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+            ]
+        },
+        {"deep_q_learning_qpc_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_14a",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_14b",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_14c",
+                    "rl_agent": "deep_q_learning",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+            ]
+        },
+        {"actor_critic_qpc_experiments": 
+            [
+                {
+                    "experiment_id": "experiment_15a",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+
+                    
+                },
+                {
+                    "experiment_id": "experiment_15b",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                },
+                {
+                    "experiment_id": "experiment_15c",
+                    "rl_agent": "actor_critic",
+                    "rl_variant": "quantum",
+                    "qpc_architecture": "ReUploadingPQC",
+                    "n_qubits": 4,
+                    "n_layers": 5,
+                    "n_episodes": 10000,
+                    "batch_size": 16,
+                    "exploration_strategy": "epsilon_greedy",
+                    "epsilon_decay": "exponential"
+                    
+                }
+            
+            ]
+        }
+    ]
+}
