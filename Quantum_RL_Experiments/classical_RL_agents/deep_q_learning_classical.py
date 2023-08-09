@@ -6,12 +6,13 @@ import random
 import matplotlib.pyplot as plt
 
 class DeepQLearningClassical:
-    def __init__(self, n_actions=2, gamma=0.99, n_episodes=2000, batch_size=16):
+    def __init__(self, n_actions=2, gamma=0.99, n_episodes=2000, batch_size=16, learning_rate=0.01):
         # Hyperparameters
         self.n_actions = n_actions
         self.gamma = gamma
         self.n_episodes = n_episodes
         self.batch_size = batch_size
+        self.learning_rate = learning_rate
 
         # Initialize models
         self.model = self.generate_model()
@@ -24,14 +25,14 @@ class DeepQLearningClassical:
         # Initialize replay memory and other training-related variables
         self.max_memory_length = 10000  # Maximum replay length
         self.replay_memory = deque(maxlen=self.max_memory_length)
-        self.epsilon = 1.0 # Epsilon greedy parameter
+        self.epsilon = 1 # Epsilon greedy parameter - start with a high value to encourage exploration
         self.epsilon_min = 0.01 # Minimum epsilon greedy parameter
-        self.decay_epsilon = 0.99 # Decay rate of epsilon greedy parameter
+        self.decay_epsilon = 0.99 # Decay rate of epsilon greedy parameter - decay it to encourage exploitation
         self.episode_reward_history = []
         self.steps_per_update = 10  # Train the model every x steps
         self.steps_per_target_update = 30  # Update the target model every x steps
 
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=0.001, amsgrad=True)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, amsgrad=True)
 
         # Set up the environment
         self.env = gym.make("CartPole-v1")
@@ -95,7 +96,7 @@ class DeepQLearningClassical:
         """Update the Q-learning and target models at appropriate intervals."""
         if step_count % self.steps_per_update == 0:
             # Create training batch and update Q model
-            training_batch = random.sample(self.replay_memory, self.batch_size)
+            training_batch = np.random.choice(self.replay_memory, self.batch_size)
             self.update_Q_model(training_batch)
         if step_count % self.steps_per_target_update == 0:
             self.model_target.set_weights(self.model.get_weights())

@@ -10,7 +10,7 @@ from cirq.contrib.svg import SVGCircuit
 from Quantum_RL_Experiments.helper import ReUploadingPQC, Alternating
 
 
-class QuantumActorCritic:
+class ActorCriticQuantum:
     def __init__(self, env_name="CartPole-v1", n_qubits=4, n_layers=5, n_actions=2, gamma=0.99, n_episodes=2000,
                  max_steps_per_episode=10000, learning_rate=0.01, state_bounds=np.array([2.4, 2.5, 0.21, 2.5])):
 

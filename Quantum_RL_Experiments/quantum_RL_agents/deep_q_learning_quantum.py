@@ -137,7 +137,7 @@ class DeepQLearningQuantum:
         """Update the Q-learning and target models at appropriate intervals."""
         if step_count % self.steps_per_update == 0:
             # Create training batch and update Q model
-            training_batch = random.sample(self.replay_memory, self.batch_size)
+            training_batch = np.random.choice(self.replay_memory, size=self.batch_size)
             self.update_Q_model(training_batch)
         if step_count % self.steps_per_target_update == 0:
             self.model_target.set_weights(self.model.get_weights())

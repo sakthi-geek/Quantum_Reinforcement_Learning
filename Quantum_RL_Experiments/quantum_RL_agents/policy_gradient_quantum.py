@@ -22,7 +22,7 @@ from Quantum_RL_Experiments.helper import ReUploadingPQC, Alternating
 
 class PolicyGradientQuantum:
     def __init__(self, env_name="CartPole-v1", n_qubits=4, n_layers=5, n_actions=2, gamma=1, n_episodes=1000,
-                 batch_size=10, state_bounds=np.array([2.4, 2.5, 0.21, 2.5])):
+                 batch_size=10, state_bounds=np.array([2.4, 2.5, 0.21, 2.5]), learning_rate={"in": 0.1, "var":0.01, "out": 0.1}):
         self.env_name = env_name
 
         # Prepare the definition of your PQC model
@@ -32,7 +32,7 @@ class PolicyGradientQuantum:
 
         self.qubits = cirq.GridQubit.rect(1, self.n_qubits)
         self.ops = [cirq.Z(q) for q in self.qubits]
-        self.observables = [reduce((lambda x, y: x * y), ops)]  # Z_0*Z_1*Z_2*Z_3
+        self.observables = [reduce((lambda x, y: x * y), self.ops)]  # Z_0*Z_1*Z_2*Z_3
 
         # Check that this produces a circuit that is alternating between variational and encoding layers.
         _n_qubits, _n_layers = 3, 1
@@ -48,11 +48,15 @@ class PolicyGradientQuantum:
         self.gamma = gamma
         self.batch_size = batch_size
         self.n_episodes = n_episodes
+        self.learning_rate = learning_rate
+        self.in_lr = learning_rate["in"]
+        self.var_lr = learning_rate["var"]
+        self.out_lr = learning_rate["out"]
 
         # Prepare the optimizers
-        self.optimizer_in = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
-        self.optimizer_var = tf.keras.optimizers.Adam(learning_rate=0.01, amsgrad=True)
-        self.optimizer_out = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
+        self.optimizer_in = tf.keras.optimizers.Adam(learning_rate=self.in_lr, amsgrad=True)
+        self.optimizer_var = tf.keras.optimizers.Adam(learning_rate=self.var_lr, amsgrad=True)
+        self.optimizer_out = tf.keras.optimizers.Adam(learning_rate=self.out_lr, amsgrad=True)
 
         # Assign the model parameters to each optimizer
         self.w_in, self.w_var, self.w_out = 1, 0, 2
@@ -93,13 +97,13 @@ class PolicyGradientQuantum:
         circuit = cirq.Circuit()
         for l in range(n_layers):
             # Variational layer
-            circuit += cirq.Circuit(one_qubit_rotation(q, params[l, i]) for i, q in enumerate(qubits))
-            circuit += entangling_layer(qubits)
+            circuit += cirq.Circuit(self.one_qubit_rotation(q, params[l, i]) for i, q in enumerate(qubits))
+            circuit += self.entangling_layer(qubits)
             # Encoding layer
             circuit += cirq.Circuit(cirq.rx(inputs[l, i])(q) for i, q in enumerate(qubits))
 
         # Last varitional layer
-        circuit += cirq.Circuit(one_qubit_rotation(q, params[n_layers, i]) for i,q in enumerate(qubits))
+        circuit += cirq.Circuit(self.one_qubit_rotation(q, params[n_layers, i]) for i,q in enumerate(qubits))
 
         return circuit, list(params.flat), list(inputs.flat)
 
@@ -149,6 +153,25 @@ class PolicyGradientQuantum:
 
         return trajectories
 
+    # Implement a function that updates the policy using states, actions and returns:
+    @tf.function
+    def reinforce_update(self, states, actions, returns):
+        states = tf.convert_to_tensor(states)
+        actions = tf.convert_to_tensor(actions)
+        returns = tf.convert_to_tensor(returns)
+
+        with tf.GradientTape() as tape:
+            tape.watch(self.model.trainable_variables)
+            logits = self.model(states)
+            p_actions = tf.gather_nd(logits, actions)
+            log_probs = tf.math.log(p_actions)
+            loss = tf.math.reduce_sum(-log_probs * returns) / self.batch_size
+        grads = tape.gradient(loss, self.model.trainable_variables)
+        for optimizer, w in zip([self.optimizer_in, self.optimizer_var, self.optimizer_out], [self.w_in, self.w_var, self.w_out]):
+            optimizer.apply_gradients([(grads[w], self.model.trainable_variables[w])])
+
+        print("done updating")
+
     def compute_returns(self, rewards_history):
         """Compute discounted returns with discount factor `gamma`."""
         returns = []
@@ -164,29 +187,16 @@ class PolicyGradientQuantum:
 
         return returns
 
-    # Implement a function that updates the policy using states, actions and returns:
-    @tf.function
-    def reinforce_update(self, states, actions, returns):
-        """Updates the policy with a reinforce update."""
-        states = tf.convert_to_tensor(states)
-        actions = tf.convert_to_tensor(actions)
-        returns = tf.convert_to_tensor(returns)
 
-        with tf.GradientTape() as tape:
-            tape.watch(self.model.trainable_variables)
-            logits = self.model(states)
-            p_actions = tf.gather_nd(logits, actions)
-            log_probs = tf.math.log(p_actions)
-            loss = tf.math.reduce_sum(-log_probs * returns) / self.batch_size
-        grads = tape.gradient(loss, self.model.trainable_variables)
-        for optimizer, w in zip([self.optimizer_in, self.optimizer_var, self.optimizer_out], [self.w_in, self.w_var, self.w_out]):
-            optimizer.apply_gradients([(grads[w], self.model.trainable_variables[w])])
 
     def train(self):
         """Train the agent."""
+        print(f"Training for {self.n_episodes //self.batch_size} batches.")
         for batch in range(self.n_episodes // self.batch_size):
+            print(batch)
             # Gather episodes
             episodes = self.gather_episodes()
+            print("episodes gathered")
 
             # Group states, actions and returns in numpy arrays
             states = np.concatenate([ep['states'] for ep in episodes])
@@ -195,14 +205,19 @@ class PolicyGradientQuantum:
             returns = np.concatenate([self.compute_returns(ep_rwds) for ep_rwds in rewards])
             returns = np.array(returns, dtype=np.float32)
 
+
             id_action_pairs = np.array([[i, a] for i, a in enumerate(actions)])
+            print("id_action_pairs arrayed")
 
             # Update model parameters.
             self.reinforce_update(states, id_action_pairs, returns)
+            print("model updated")
 
             # Store collected rewards
             for ep_rwds in rewards:
                 self.episode_reward_history.append(np.sum(ep_rwds))
+            print("rewards stored")
+
 
             avg_rewards = np.mean(self.episode_reward_history[-10:])
 

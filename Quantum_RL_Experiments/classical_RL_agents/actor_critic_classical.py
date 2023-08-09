@@ -4,6 +4,7 @@ import tensorflow as tf
 from tensorflow import keras
 from tensorflow.keras import layers
 import matplotlib.pyplot as plt
+from collections import defaultdict
 
 
 class ActorCriticClassical:
@@ -14,7 +15,7 @@ class ActorCriticClassical:
         self.max_steps_per_episode = max_steps_per_episode
         self.learning_rate = learning_rate
 
-        self.env = gym.make("CartPole-v0")
+        self.env = gym.make("CartPole-v1")
         num_inputs = 4
         num_actions = 2
         num_hidden = 128
@@ -30,9 +31,37 @@ class ActorCriticClassical:
         self.huber_loss = keras.losses.Huber()
         self.episode_reward_history = []
 
+        # Environment metrics
+        self.pole_angle_history = []
+        self.pole_angular_velocity_history = []
+        self.cart_position_history = []
+        self.cart_velocity_history = []
+        self.action_distribution = defaultdict(int)
+        self.termination_reasons = {"pole_angle": 0, "cart_position": 0}
+
+        # General metrics
+        self.episode_lengths = []
+        self.actor_loss_history = []
+        self.critic_loss_history = []
+        self.entropy_history = []
+        self.advantage_values_history = []
+        self.gradient_magnitudes_history = []
+        self.episode_rewards_min = []
+        self.episode_rewards_max = []
+        self.episode_rewards_mean = []
+        self.episode_rewards_std = []
+
+        # Early stopping parameters
+        self.patience = 500  # Number of episodes to wait for improvement
+        self.min_improvement = 5  # Minimum improvement in average reward to be considered actual improvement
+        self.best_avg_reward = -np.inf  # Best average reward observed so far
+        self.waited_episodes = 0  # Number of episodes waited since the last improvement
+
     def train(self):
         episode_count = 0
         running_reward = 0
+        N = 10  # You can adjust this to capture metrics every N episodes
+        best_weights = None  # Store the best model weights
 
         for _ in range(self.n_episodes):
             state = self.env.reset()
@@ -40,6 +69,8 @@ class ActorCriticClassical:
             critic_value_history = []
             rewards_history = []
             episode_reward = 0
+            episode_entropy = []
+            episode_advantages = []
 
             with tf.GradientTape() as tape:
                 for timestep in range(1, self.max_steps_per_episode):
@@ -50,9 +81,31 @@ class ActorCriticClassical:
                     action = np.random.choice(self.env.action_space.n, p=np.squeeze(action_probs))
                     action_probs_history.append(tf.math.log(action_probs[0, action]))
                     state, reward, done, _ = self.env.step(action)
+
                     rewards_history.append(reward)
                     episode_reward += reward
+
+                    # Update environment-specific metrics - GRANULAR
+                    if episode_count % N == 0:
+                        pole_angle, pole_velocity, cart_position, cart_velocity = state
+                        self.pole_angle_history.append(pole_angle)
+                        self.pole_angular_velocity_history.append(pole_velocity)
+                        self.cart_position_history.append(cart_position)
+                        self.cart_velocity_history.append(cart_velocity)
+                        self.action_distribution[action] += 1
+
+                        # Entropy of the policy
+                        entropy = -tf.reduce_sum(action_probs * tf.math.log(action_probs))
+                        episode_entropy.append(entropy.numpy())
+
+                    # Update termination reasons (only if done)
                     if done:
+                        # Store the episode length
+                        self.episode_lengths.append(timestep)
+                        if abs(pole_angle) > 0.2094:  # ~12 degrees
+                            self.termination_reasons["pole_angle"] += 1
+                        elif abs(cart_position) > 2.4:
+                            self.termination_reasons["cart_position"] += 1
                         break
 
                 running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
@@ -78,12 +131,48 @@ class ActorCriticClassical:
                 grads = tape.gradient(loss_value, self.model.trainable_variables)
                 self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
+                # Storing actor and critic losses separately
+                self.actor_loss_history.append(np.mean(actor_losses))
+                self.critic_loss_history.append(np.mean(critic_losses))
+
+                # Calculate average entropy and advantage values and store them
+                self.entropy_history.append(np.mean(episode_entropy))
+
+                # Storing advantage values
+                advantages = [ret - value for ret, value in zip(returns, critic_value_history)]
+                self.advantage_values_history.append(np.mean(advantages))
+
+                # Gradient magnitudes
+                gradient_magnitudes = [tf.norm(grad).numpy() for grad in grads if grad is not None]
+                self.gradient_magnitudes_history.append(np.mean(gradient_magnitudes))
+
+            # Storing rewards stats - GRANULAR
+            if episode_count % N == 0:
+                self.episode_rewards_min.append(np.min(rewards_history))
+                self.episode_rewards_max.append(np.max(rewards_history))
+                self.episode_rewards_mean.append(np.mean(rewards_history))
+                self.episode_rewards_std.append(np.std(rewards_history))
+
+            # Early stopping check
+            if len(self.episode_reward_history) >= self.patience:
+                avg_last_rewards = np.mean(self.episode_reward_history[-self.patience:])
+                if avg_last_rewards - self.best_avg_reward >= self.min_improvement:
+                    self.best_avg_reward = avg_last_rewards
+                    self.waited_episodes = 0
+                    best_weights = self.model.get_weights()  # Save the best weights
+                else:
+                    self.waited_episodes += 1
+                    if self.waited_episodes >= self.patience:
+                        print(f"Early stopping after {self.waited_episodes} episodes without improvement.")
+                        self.model.set_weights(best_weights)  # Restore the best weights
+                        break
+
             episode_count += 1
             if episode_count % 10 == 0:
                 avg_rewards = np.mean(self.episode_reward_history[-10:])
                 print("Episode {}/{}, average last 10 rewards {}".format(episode_count, self.n_episodes, avg_rewards))
 
-                if avg_rewards >= 195:
+                if avg_rewards >= 500.0:
                     break
 
         self.plot_rewards()
@@ -111,6 +200,8 @@ class ActorCriticClassical:
             while not done:
                 if render:
                     self.env.render()
+                # state = tf.convert_to_tensor(state)
+                # state = tf.expand_dims(state, 0)
                 action_probs, _ = self.model(state[None, :])
                 action = np.argmax(action_probs[0])
                 state, reward, done, _ = self.env.step(action)

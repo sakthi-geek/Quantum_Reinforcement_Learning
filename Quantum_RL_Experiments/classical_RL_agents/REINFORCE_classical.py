@@ -50,7 +50,7 @@ class REINFORCEAgent:
             states = [None for i in range(self.batch_size)]
             for i, policy in zip(unfinished_ids, action_probs.numpy()):
                 action = np.random.choice(self.action_size, p=policy)
-                states[i], reward, done[i], _, _ = envs[i].step(action)
+                states[i], reward, done[i], _ = envs[i].step(action)
                 trajectories[i]['actions'].append(action)
                 trajectories[i]['rewards'].append(reward)
 
@@ -134,7 +134,7 @@ class REINFORCEAgent:
 
     def play(self):
         """Play an episode using the trained policy."""
-        env = gym.make(self.env_name, render_mode="human")
+        env = gym.make(self.env_name)
         observation, info = env.reset()
 
         for _ in range(500):
