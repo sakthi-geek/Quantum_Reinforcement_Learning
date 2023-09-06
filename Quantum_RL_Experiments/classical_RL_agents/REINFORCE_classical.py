@@ -7,24 +7,46 @@ from tensorflow.keras import layers
 
 
 class REINFORCEAgent:
-    def __init__(self, env_name='CartPole-v1', learning_rate=0.02, gamma=0.99, batch_size=16, n_episodes=2000):
+    def __init__(self, env_name='CartPole-v1', seed=39, learning_rate=0.02, gamma=0.99, batch_size=16, n_episodes=2000):
+
+        # Environment -----------------------
+        self.seed = seed
         self.env_name = env_name
         self.env = gym.make(env_name)
+
         self.state_size = self.env.observation_space.shape[0]
         self.action_size = self.env.action_space.n
+
+        np.random.seed(self.seed)
+        tf.random.set_seed(self.seed)
+        # random.seed(self.seed)
+
+        # Configuration parameters----------------------
         self.learning_rate = learning_rate
         self.gamma = gamma
         self.batch_size = batch_size
         self.n_episodes = n_episodes
+        self.state_bounds = np.array([2.4, 2.5, 0.21, 2.5])
+
+        # Model ---------------------------------------
         self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, amsgrad=True)
         self.model = self.build_model(self.state_size, self.action_size, self.learning_rate)
-        self.state_bounds = np.array([2.4, 2.5, 0.21, 2.5])
+
+        self.input_shape = self.model.input_shape
+        self.output_shape = self.model.output_shape
+        self.trainable_params = self.model.count_params()
+        print(self.input_shape, self.output_shape, self.trainable_params)
+
+        # Metrics ---------------------------
         self.episode_reward_history = []
+        self.episode_length_history = []
+
+
 
     def build_model(self, state_size, action_size, learning_rate=0.001):
         """Builds a Keras model for the policy."""
         model = tf.keras.models.Sequential()
-        model.add(layers.Dense(16, input_dim=state_size, activation='relu'))
+        model.add(layers.Dense(32, input_dim=state_size, activation='relu'))
         model.add(layers.Dense(16))
         model.add(layers.Dense(2, activation='relu', kernel_initializer='RandomNormal'))
         model.add(layers.Dense(action_size, activation='softmax'))
@@ -34,8 +56,15 @@ class REINFORCEAgent:
         """Gathers `batch_size` episodes."""
         trajectories = [defaultdict(list) for _ in range(self.batch_size)]
         envs = [gym.make(self.env_name) for _ in range(self.batch_size)]
+        # Set seed for each environment instance for reproducibility
+        seeded_envs = []
+        if self.seed is not None:
+            for i, env in enumerate(envs):
+                env.seed(self.seed + i)
+                seeded_envs.append(env)
+
         done = [False for _ in range(self.batch_size)]
-        states = [e.reset()[0] for e in envs]
+        states = [e.reset()[0] for e in seeded_envs]
 
         while not all(done):
             unfinished_ids = [i for i in range(self.batch_size) if not done[i]]
@@ -104,6 +133,7 @@ class REINFORCEAgent:
 
             for ep_rwds in rewards:
                 self.episode_reward_history.append(np.sum(ep_rwds))
+                self.episode_length_history.append(len(ep_rwds))
 
             avg_rewards = np.mean(self.episode_reward_history[-10:])
 
@@ -111,6 +141,17 @@ class REINFORCEAgent:
 
             if avg_rewards >= 500.0:
                 break
+
+        self.episode_count = len(self.episode_reward_history)
+        self.average_timesteps_per_episode = np.mean(self.episode_length_history)
+        self.episode_rewards_min = np.min(self.episode_reward_history)
+        self.episode_rewards_max = np.max(self.episode_reward_history)
+        self.episode_rewards_mean = np.mean(self.episode_reward_history)
+        self.episode_rewards_median = np.median(self.episode_reward_history)
+        self.episode_rewards_std = np.std(self.episode_reward_history)
+        self.episode_rewards_iqr = np.subtract(*np.percentile(self.episode_reward_history, [75, 25]))
+        self.episode_rewards_q1 = np.percentile(self.episode_reward_history, 25)
+        self.episode_rewards_q3 = np.percentile(self.episode_reward_history, 75)
 
         self.plot_rewards()
 
@@ -153,4 +194,4 @@ class REINFORCEAgent:
 if __name__ == "__main__":
     agent = REINFORCEAgent()
     agent.train()
-    agent.play()
+
