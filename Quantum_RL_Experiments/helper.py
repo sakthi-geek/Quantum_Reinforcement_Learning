@@ -11,9 +11,14 @@ import os
 from typing import List, Dict, Any
 from collections import defaultdict
 import statistics
+import re
+from scipy import stats
+import pandas as pd
+from scipy.stats import ttest_ind
+import glob
 
 import matplotlib.pyplot as plt
-import json
+import json, csv
 import gym, cirq, sympy
 import numpy as np
 from functools import reduce
@@ -29,6 +34,7 @@ print(gym.__version__)
 print(tf.config.list_physical_devices('GPU'))
 
 
+
 def load_json_file(json_file):
     with open(json_file, 'r') as f:
         return json.load(f)
@@ -39,7 +45,282 @@ def save_to_json(data, filename):
         # properly formatted
         json.dump(data, f, indent=4)
 
-import re
+def confidence_interval(data, confidence=0.95):
+    """
+    Calculate the confidence interval for given data.
+    """
+    n = len(data)
+    mean = np.mean(data)
+    std_dev = np.std(data, ddof=1)
+    z_value = stats.norm.ppf((1 + confidence) / 2)
+    margin_error = z_value * (std_dev / np.sqrt(n))
+    lower_bound = mean - margin_error
+    upper_bound = mean + margin_error
+    return lower_bound, upper_bound
+
+def standard_deviation_of_mean(std_dev, n):
+    """
+    Calculate the Standard Deviation of the Mean (SDOM)
+    """
+    return std_dev / np.sqrt(n)
+
+def coefficient_of_variation(mean, std_dev):
+    """
+    Calculate the Coefficient of Variation (CV)
+    """
+    return (std_dev / mean) * 100
+
+def perform_t_test(rewards_1, rewards_2):
+    """
+    Performs an independent t-test between rewards_1 and rewards_2.
+    Returns the t statistic and p-value.
+    """
+    return ttest_ind(rewards_1, rewards_2, equal_var=False)
+
+def save_t_test_results_to_csv(results_dict, csv_filename):
+    """
+    Saves t-test results to a CSV file.
+    """
+    results_df = pd.DataFrame(results_dict)
+    results_df.to_csv(csv_filename, index=False)
+
+def cohen_d(x, y):
+    """Compute Cohen's d effect size between two groups x, and y."""
+    nx = len(x)
+    ny = len(y)
+    mean_x = np.mean(x)
+    mean_y = np.mean(y)
+    pooled_std = np.sqrt(((nx - 1) * np.std(x, ddof=1) ** 2 + (ny - 1) * np.std(y, ddof=1) ** 2) / (nx + ny - 2))
+    return (mean_x - mean_y) / pooled_std
+
+
+def deep_dict_compare(d1, d2, ignored_keys):
+    """Recursive function to deeply compare two dictionaries while ignoring specified keys."""
+    # Compare keys
+    keys1, keys2 = set(d1.keys()), set(d2.keys())
+    for key in ignored_keys:
+        keys1.discard(key)
+        keys2.discard(key)
+
+    if keys1 != keys2:
+        return False
+
+    # Compare values
+    for key in keys1:
+        val1, val2 = d1[key], d2[key]
+        if isinstance(val1, dict) and isinstance(val2, dict):
+            if not deep_dict_compare(val1, val2, ignored_keys):
+                return False
+        elif val1 != val2:
+            return False
+
+    return True
+
+
+def update_json_files(filepaths, save=False):
+    for filepath in filepaths:
+        # Read original JSON
+        with open(filepath, 'r') as f:
+            original_json = json.load(f)
+
+        # Modify JSON data
+        updated_json = original_json.copy()
+        updated_json['metrics']['episode_length_history'] = updated_json['metrics']['episode_reward_history']
+        total_episodes = updated_json['metrics']['episode_count']
+        total_timesteps = sum(updated_json['metrics']['episode_length_history'])
+        updated_json['metrics'][
+            'average_timesteps_per_episode'] = total_timesteps / total_episodes if total_episodes else 0
+
+        # Verify both JSONs are identical except for the two fields we changed
+        if not deep_dict_compare(original_json, updated_json,
+                                 {'episode_length_history', 'average_timesteps_per_episode'}):
+            print(f"Something went wrong with {filepath}, JSONs are not identical!")
+            continue
+
+        # Save updated JSON
+        if save:
+            updated_filepath = filepath.split('.')[0] + '_updated.json'
+            with open(updated_filepath, 'w') as f:
+                json.dump(updated_json, f, indent=4)
+
+        print(f"Updated {filepath}")
+
+def calculate_comparitive_metrics(all_experiment_dicts, experiment_type, rl_agent, save=False):
+    """
+    Perform comprehensive comparative metrics, uncertainties, and statistical tests on selected experiments.
+
+    Parameters:
+    all_experiment_dicts: list of dict
+        List of dictionaries, each containing the results of an experiment.
+    experiment_type: str
+        Type of experiments to compare: "Classical vs Quantum" or "Quantum N layer"
+    rl_agent: str
+        Reinforcement Learning agent type: "Policy_Gradient_REINFORCE", "Deep_Q_Learning", "Actor_Critic"
+    save: bool, optional
+        Whether to save the output DataFrame to a CSV file.
+
+    Returns:
+    None
+    """
+
+    # Filter experiments based on experiment_type and rl_agent
+    filtered_experiment_dicts = [exp for exp in all_experiment_dicts if
+                                 exp['experiment_config']['experiment_id'] in select_experiment_ids]
+
+    # Create empty DataFrames to store results
+    basic_metrics_df = pd.DataFrame()
+    comparative_stats_df = pd.DataFrame()
+
+    for exp_dict in experiment_dicts:
+        exp_id = exp_dict['experiment_config']['experiment_id']
+        metrics = exp_dict['metrics']
+
+        # Calculate metrics and uncertainties
+        mean_reward = np.mean(metrics['episode_reward_history'])
+        lower_bound, upper_bound = confidence_interval(metrics['episode_reward_history'])
+        std_dev_mean = standard_deviation_of_mean(np.std(metrics['episode_reward_history'], ddof=1),
+                                                  len(metrics['episode_reward_history']))
+        cv = coefficient_of_variation(mean_reward, np.std(metrics['episode_reward_history'], ddof=1))
+
+        # Store basic metrics and uncertainties in a temporary DataFrame
+        temp_df = pd.DataFrame({
+            'Experiment_ID': [exp_id],
+            'Mean_Reward': [mean_reward],
+            'Lower_CI': [lower_bound],
+            'Upper_CI': [upper_bound],
+            'SDOM': [std_dev_mean],
+            'CV': [cv]
+        })
+
+        # Append to the basic metrics DataFrame
+        basic_metrics_df = pd.concat([basic_metrics_df, temp_df], ignore_index=True)
+
+    # Perform t-tests and comparative statistics
+    t_test_results = {}
+    for i in range(len(experiment_dicts)):
+        for j in range(i + 1, len(experiment_dicts)):
+            exp1_id = experiment_dicts[i]['experiment_config']['experiment_id']
+            exp2_id = experiment_dicts[j]['experiment_config']['experiment_id']
+            rewards_1 = experiment_dicts[i]['metrics']['episode_reward_history']
+            rewards_2 = experiment_dicts[j]['metrics']['episode_reward_history']
+
+            t_stat, p_value = perform_t_test(rewards_1, rewards_2)
+            d = cohen_d(rewards_1, rewards_2)
+
+            t_test_results[f"{exp1_id} vs {exp2_id}"] = [t_stat, p_value, d]
+
+    comparative_stats_df = pd.DataFrame.from_dict(t_test_results, orient='index',
+                                                  columns=['T-Statistic', 'P-Value', 'Cohen_d'])
+
+    # Save results to CSV if required
+    if save:
+        file_name_suffix = f"{experiment_type}_{rl_agent}"
+        basic_metrics_df.to_csv(f'basic_metrics_{file_name_suffix}.csv', index=False)
+        comparative_stats_df.to_csv(f'comparative_stats_{file_name_suffix}.csv', index=False)
+
+    return basic_metrics_df, comparative_stats_df
+
+
+def flatten_dict(d, parent_key='', sep='_', special_keys=None, ignore_keys=None):
+    """
+    Flatten a nested dictionary structure.
+    Parameters:
+    - d (dict): The dictionary to flatten.
+    - parent_key (str): The parent key for nested dictionaries.
+    - sep (str): The separator between nested keys.
+    - special_keys (list): List of substrings to identify special keys that should be kept as JSON strings.
+    - ignore_keys (list): List of keys to ignore during flattening.
+    Returns:
+    - dict: A flattened dictionary.
+    """
+
+    items = {}
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+
+        # Skip the key-value pair if the key or its parent key is in ignore_keys
+        if ignore_keys and any(new_key.startswith(ik) for ik in ignore_keys):
+            continue
+
+        if isinstance(v, dict):
+            if special_keys and any(sub in k for sub in special_keys):
+                items[new_key] = json.dumps(v)
+            else:
+                items.update(flatten_dict(v, new_key, sep=sep, special_keys=special_keys, ignore_keys=ignore_keys))
+        else:
+            items[new_key] = v
+
+    return items
+
+
+def rearrange_fieldnames(all_fieldnames, main_keys):
+    """
+    Rearrange fieldnames based on the order of main keys (first-level keys in the JSON).
+    Parameters:
+    - all_fieldnames (set): A set of all flattened fieldnames.
+    - main_keys (list): A list of main keys (first-level keys) in the original JSON.
+    Returns:
+    - list: A list of rearranged fieldnames.
+    """
+
+    # Initialize an empty list to hold the rearranged fieldnames
+    rearranged_fieldnames = []
+
+    for main_key in main_keys:
+        # Filter all_fieldnames based on the current main_key
+        filtered_fieldnames = [field for field in all_fieldnames if field.startswith(main_key)]
+        # Sort and extend the rearranged_fieldnames list
+        rearranged_fieldnames.extend(sorted(filtered_fieldnames))
+
+    return rearranged_fieldnames
+
+
+def write_to_csv(json_files, output_csv_file, special_fields=None, sort_keys=None, ignore_keys=None):
+    """
+    Write multiple JSON files to a single CSV file.
+    Parameters:
+    - json_files (list): List of paths to JSON files.
+    - output_csv_file (str): Path to the output CSV file.
+    - special_fields (list): List of substrings to identify fields that should be kept as JSON strings in a single column.
+
+    """
+
+    # Initialize an empty list to hold the flattened dictionaries
+    flattened_json_list = []
+    # Initialize a set to hold all field names
+    all_fieldnames = set()
+
+    # Loop over each JSON file
+    for json_file in json_files:
+        with open(json_file, 'r') as f:
+            # Load JSON data
+            json_data = json.load(f)
+
+        # Flatten the JSON data
+        flattened_json_data = flatten_dict(json_data, special_keys=special_fields, ignore_keys=ignore_keys)
+
+        # Update the set of all fieldnames
+        all_fieldnames.update(flattened_json_data.keys())
+
+        # Append the flattened JSON data to the list
+        flattened_json_list.append(flattened_json_data)
+
+        print(flattened_json_data)
+
+    # Rearrange fieldnames if main_keys are provided
+    if sort_keys:
+        all_fieldnames = rearrange_fieldnames(all_fieldnames, sort_keys)
+
+    # Write the flattened JSON list to a CSV file
+    with open(output_csv_file, 'w', newline='') as f:
+        writer = csv.DictWriter(f, fieldnames=all_fieldnames)
+        # Write the header
+        writer.writeheader()
+        # Write the rows
+        for flattened_json_data in flattened_json_list:
+            writer.writerow(flattened_json_data)
+
+    print("Saved all experiments metrics into a single csv file")
 
 def atof(text):
     try:
@@ -71,6 +352,83 @@ def filter_files(directory, substring, extension):
 
     return all_filtered_files
 
+
+def filter_files_with_subdir_levels(base_dir, subdirs_with_levels, file_substring, extension):
+    """
+    Filters files based on the given parameters and returns a list of file paths.
+    Levels are considered in the way:
+    - -1 means the immediate parent directory containing the file
+    - -2 means the parent directory of the directory that contains the file
+    ... and so on
+
+    This version also filters subdirectories at the same level using substring checks.
+
+    Parameters:
+    - base_dir (str): The base directory to start searching from.
+    - subdirs_with_levels (list): A list containing dictionaries with subdirectories and their levels
+                                  For example, [{'subdir1': -1}, {'subdir2': -2}].
+    - file_substring (str): The substring to filter files by.
+    - extension (str): The extension of the files to look for.
+
+    Returns:
+    - List of file paths that match the filter criteria.
+    """
+    # Input validation
+
+    if not isinstance(base_dir, str) or not os.path.exists(base_dir):
+        raise ValueError("Invalid base directory.")
+    if not isinstance(subdirs_with_levels, list):
+        raise ValueError("subdirs_with_levels should be a list.")
+    if not isinstance(file_substring, str):
+        raise ValueError("file_substring should be a string.")
+    if not isinstance(extension, str):
+        raise ValueError("extension should be a string.")
+
+    filtered_files = []
+
+    # Walk through the directory tree starting from base_dir
+    for dirpath, _, filenames in os.walk(base_dir):
+        # Split the dirpath into its components
+        path_splits = dirpath.split(os.sep)
+
+        # Initialize a flag to check if all conditions are met
+        match_found = True
+
+        # Loop through each dict in subdirs_with_levels
+        for subdir_level_dict in subdirs_with_levels:
+
+            # Type-checking: Ensure it's a dictionary
+            if not isinstance(subdir_level_dict, dict):
+                raise ValueError("Each element in subdirs_with_levels should be a dictionary.")
+
+            match_dict = True  # Initialize flag for this dict
+            # Check for each subdir and its level in the dict
+            for subdir, level in subdir_level_dict.items():
+                try:
+                    # Check if the substring exists in the subdirectory at the given level
+                    if subdir in path_splits[level]:
+                        continue
+                    else:
+                        match_dict = False
+                        break
+                except IndexError:
+                    match_dict = False
+                    break
+
+            # If all conditions in this dict are met, set match_found to True
+            if match_dict:
+                match_found = True
+                break
+            else:
+                match_found = False
+
+        if match_found:
+            # Filter filenames based on substring and extension
+            for filename in filenames:
+                if file_substring in filename and filename.endswith(extension):
+                    filtered_files.append(os.path.join(dirpath, filename))
+
+    return filtered_files
 
 def compute_averaged_rewards(list_of_lists: List[List[float]], method: str = 'plateau', fill_value: float = None) -> List[float]:
     """
@@ -317,8 +675,11 @@ def plot_averaged_rewards(exp_reward_histories, exp_id, smoothing_method="EMA", 
         # Add the rewards from this rerun to sum_rewards
         sum_rewards += episode_rewards
 
-        # Plot individual reward history with alpha=0.4
-        plt.plot(episode_rewards, alpha=0.4, label=f'Run {i + 1}', linewidth=1)
+        # Plot individual reward history with alpha=0.4 and light blue colour
+        plt.plot(episode_rewards, alpha=0.3, linewidth=1, color='lightblue')
+
+    # Single legend entry for all reruns
+    plt.plot([], [], alpha=0.4, color='lightblue', linewidth=1, label='All reruns({})'.format(n_exps))
 
     # Calculate the average rewards
     avg_rewards = sum_rewards / n_exps
@@ -355,25 +716,55 @@ def plot_averaged_rewards(exp_reward_histories, exp_id, smoothing_method="EMA", 
     plt.show()
 
 
+def plot_multiple_experiments(multi_exp_reward_histories, exp_ids, experiment_names, smoothing_method="EMA", smoothing_level=0.9,
+                              save=True, fig_size=(10, 7), plot_title="Rewards over Episodes"):
+    """
+    Plots multiple experiment reward histories in one plot.
+    """
+    basic_text_size = 12
+    line_width = 2
+    text_sizes = adjust_text_size(basic_text_size)  # Adjust text sizes
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k']  # Different colors for different curves  - [blue, green, red, cyan, magenta, yellow, black]
+    plt.figure(figsize=fig_size)
 
+    for idx, (exp_rewards, exp_id) in enumerate(zip(multi_exp_reward_histories, exp_ids)):
+        color = colors[idx % len(colors)]
+        print("color: ", color)
 
-def plot_timesteps_over_episodes(json_data, smoothing_factor=0.9, save=True):
-    """Plot timesteps per episode over episodes with an option for smoothed curve."""
-    episode_timesteps = json_data['metrics']['episode_lengths']
-    smoothed_timesteps = smooth_curve(episode_timesteps, smoothing_factor)
+        # Smooth the average rewards
+        smoothed_rewards = smooth_curve(exp_rewards, exp_id, smoothing_method=smoothing_method,
+                                        smoothing_level=smoothing_level, save=False)
 
-    plt.figure()
-    plt.plot(episode_timesteps, label="Original", alpha=0.5)
-    plt.plot(smoothed_timesteps, label=f"Smoothed (factor={smoothing_factor})")
-    plt.xlabel('Episodes')
-    plt.ylabel('Timesteps')
-    plt.title('Timesteps over Episodes')
-    plt.legend()
+        # Plot original curve with light shade
+        plt.plot(exp_rewards, color=color, alpha=0.3, linewidth=1)    # label=f"{exp_id} Original"
+        if len(exp_ids) == 2 and "Quantum" in experiment_names[exp_id]:
+            legend_str = " ".join(experiment_names[exp_id].split(" ")[:-2])
+        else:
+            legend_str = experiment_names[exp_id]
 
+        #---check how many run directories under each exp_id directory to get number of runs for each experiment
+        n_runs = len(glob.glob(os.path.join(exp_id, "run*")))
+
+        legend_str += " ({} runs)".format(n_runs)
+        # Plot smoothed curve with dark shade
+        plt.plot(smoothed_rewards, label=f"{legend_str}", color=color, linewidth=2)
+
+    plt.xlabel('Episodes', fontsize=text_sizes["label_size"])
+    plt.ylabel('Reward', fontsize=text_sizes["label_size"])
+    plt.title(plot_title, fontsize=text_sizes["title_size"])
+    # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4, fontsize=text_sizes["legend_size"])
+    plt.legend(loc='lower right', fontsize=text_sizes["legend_size"])
+
+    # Adjust tick sizes
+    plt.xticks(fontsize=text_sizes["tick_size"])
+    plt.yticks(fontsize=text_sizes["tick_size"])
+
+    plot_save_file_name = "{}.png".format(plot_title)  # datetime.now().strftime("%Y%m%d-%H%M%S")
     if save:
-        plt.savefig('timesteps_over_episodes.png')
-    else:
-        plt.show()
+        plt.savefig(plot_save_file_name) #, bbox_inches='tight', pad_inches=0.1)
+    plt.show()
+
+
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):

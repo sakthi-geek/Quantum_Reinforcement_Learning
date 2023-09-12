@@ -8,23 +8,35 @@ from collections import defaultdict
 from functools import reduce
 import matplotlib.pyplot as plt
 from cirq.contrib.svg import SVGCircuit
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
+
 from Quantum_RL_Experiments.helper import ReUploadingPQC, Alternating, Rescaling
+
 
 
 eps = np.finfo(np.float32).eps.item()  # Smallest number such that 1.0 + eps != 1.0
 
 class ActorCriticQuantum:
-    def __init__(self, env_name="CartPole-v1", n_qubits=4, n_layers=5, n_actions=2, gamma=0.99, n_episodes=3000,
+    def __init__(self, env_name="CartPole-v1", seed = 39, n_qubits=4, n_layers=5, n_actions=2, gamma=0.99, n_episodes=3000,
                  max_steps_per_episode=10000, learning_rate=0.01, state_bounds=np.array([2.4, 2.5, 0.21, 2.5])):
 
+        # Environment -----------------------
         self.env_name = env_name
-        self.env = gym.make(env_name)
+        self.env = gym.make(self.env_name)
+        self.seed = seed
+
+        np.random.seed(self.seed)
+        tf.random.set_seed(self.seed)
+        # random.seed(self.seed)
+
+        # Configuration parameters
         self.gamma = gamma
         self.n_episodes = n_episodes
         self.max_steps_per_episode = max_steps_per_episode
         self.learning_rate = learning_rate
         self.state_bounds = state_bounds
 
+        # Quantum Parameters
         self.n_qubits = n_qubits
         self.n_layers = n_layers
         self.n_actions = n_actions
@@ -58,22 +70,79 @@ class ActorCriticQuantum:
         self.input_shape = [self.actor_model.input_shape, self.critic_model.input_shape]
         self.output_shape = [self.actor_model.output_shape, self.critic_model.output_shape]
         self.trainable_params = [self.actor_model.count_params(), self.critic_model.count_params()]
-        print(self.input_shape, self.output_shape, self.trainable_params)
 
-        # Prepare the actor optimizers
-        self.actor_optimizer_in = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
-        self.actor_optimizer_var = tf.keras.optimizers.Adam(learning_rate=0.01, amsgrad=True)
-        self.actor_optimizer_out = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
+        # Optimizer with Learning Rate Scheduler
+        lr_schedule = ExponentialDecay(
+            initial_learning_rate=0.01,
+            decay_steps=10000,  # decay the learning rate after every 10000 steps
+            decay_rate=0.99, )  # decay rate factor
+        # Optimizer
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, amsgrad=True) # amsgrad=False for initial experiment 1
 
-        # Prepare the critic optimizers
-        self.critic_optimizer_in = tf.keras.optimizers.Adam(learning_rate=0.001, amsgrad=True)
-        self.critic_optimizer_var = tf.keras.optimizers.Adam(learning_rate=0.001, amsgrad=True)
-        self.critic_optimizer_out = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
-
-        # Assign the model parameters to each optimizer
-        self.w_in, self.w_var, self.w_out = 1, 0, 2
+        # # learning_rate
+        # self.actor_in_lr = self.learning_rate["actor"]["in"]
+        # self.actor_var_lr = self.learning_rate["actor"]["var"]
+        # self.actor_out_lr = self.learning_rate["actor"]["out"]
+        # # Prepare the actor optimizers
+        # self.actor_optimizer_in = tf.keras.optimizers.Adam(learning_rate=self.actor_in_lr, amsgrad=True)
+        # self.actor_optimizer_var = tf.keras.optimizers.Adam(learning_rate=self.actor_var_lr, amsgrad=True)
+        # self.actor_optimizer_out = tf.keras.optimizers.Adam(learning_rate=self.actor_out_lr, amsgrad=True)
+        # # learning_rate
+        # self.critic_in_lr = self.learning_rate["critic"]["in"]
+        # self.critic_var_lr = self.learning_rate["critic"]["var"]
+        # self.critic_out_lr = self.learning_rate["critic"]["out"]
+        # # Prepare the critic optimizers
+        # self.critic_optimizer_in = tf.keras.optimizers.Adam(learning_rate=self.critic_in_lr, amsgrad=True)
+        # self.critic_optimizer_var = tf.keras.optimizers.Adam(learning_rate=self.critic_var_lr, amsgrad=True)
+        # self.critic_optimizer_out = tf.keras.optimizers.Adam(learning_rate=self.critic_out_lr, amsgrad=True)
+        #
+        # # Assign the model parameters to each optimizer
+        # self.w_in, self.w_var, self.w_out = 1, 0, 2
 
         self.huber_loss = tf.keras.losses.Huber()
+
+        self.config_params = {
+            "num_actor_observables": len(self.actor_observables),
+            "num_critic_observables": len(self.critic_observables),
+            "num_actor_qubits": len(self.actor_qubits),
+            "num_critic_qubits": len(self.critic_qubits),
+            "actor_qubits": str(self.actor_qubits),
+            "critic_qubits": str(self.critic_qubits),
+            "actor_ops": str(self.actor_ops),
+            "critic_ops": str(self.critic_ops),
+            "actor_observables": str(self.actor_observables),
+            "critic_observables": str(self.critic_observables)
+        }
+
+        # print all parameters
+        print("----------------------")
+        print("Environment: ", self.env_name)
+        print("Seed: ", self.seed)
+        print("Gamma: ", self.gamma)
+        print("Number of Episodes: ", self.n_episodes)
+        print("Max Steps per Episode: ", self.max_steps_per_episode)
+        print("Learning Rate: ", self.learning_rate)
+        print("State Bounds: ", self.state_bounds)
+        print("Number of Qubits: ", self.n_qubits)
+        print("Number of Layers: ", self.n_layers)
+        print("Number of Actions: ", self.n_actions)
+        print("Number of Actor Observables: ", len(self.actor_observables))
+        print("Actor Qubits: ", self.actor_qubits)
+        print("Actor Ops: ", self.actor_ops)
+        print("Actor Observables: ", self.actor_observables)
+        print("Actor Model: ", self.actor_model.summary())
+        print("Number of Critic Observables: ", len(self.critic_observables))
+        print("Critic Qubits: ", self.critic_qubits)
+        print("Critic Ops: ", self.critic_ops)
+        print("Critic Observables: ", self.critic_observables)
+        print("Critic Model: ", self.critic_model.summary())
+        print("Input Shape: ", self.input_shape)
+        print("Output Shape: ", self.output_shape)
+        print("Trainable Parameters: ", self.trainable_params)
+        print("lr_schedule: ", {"initial_learning_rate": lr_schedule.initial_learning_rate,
+                                "decay_steps": lr_schedule.decay_steps,
+                                "decay_rate": lr_schedule.decay_rate})
+        print("----------------------")
 
         # Metrics ---------------------------
         self.episode_reward_history = []
@@ -159,7 +228,7 @@ class ActorCriticQuantum:
 
                 running_reward = 0.05 * episode_reward + (1 - 0.05) * running_reward
                 self.episode_reward_history.append(episode_reward)
-                self.episode_length_history.append(episode_length)
+                self.episode_length_history.append(episode_length)  # TODO: check if this is correct
 
                 returns = []
                 discounted_sum = 0
@@ -180,26 +249,27 @@ class ActorCriticQuantum:
                     actor_losses.append(-log_prob * diff)
                     critic_losses.append(self.huber_loss(tf.expand_dims(value, 0), tf.expand_dims(ret, 0)))
 
-                # Shared Model----------------------------------
                 total_loss = sum(actor_losses) + sum(critic_losses)
-                # # Apply gradients to shared_model
+                grads = tape.gradient(total_loss, self.actor_model.trainable_variables + self.critic_model.trainable_variables)
+                self.optimizer.apply_gradients(zip(grads, self.actor_model.trainable_variables + self.critic_model.trainable_variables))
+
+                # Shared Model----------------------------------
+                # Apply gradients to shared_model
                 # grads = tape.gradient(total_loss, self.shared_actor_critic_model.trainable_variables)
                 #
                 # for optimizer, w in zip([self.shared_optimizer_in, self.shared_optimizer_var, self.shared_optimizer_out],
                 #                             [self.w_in, self.w_var, self.w_out]):
                 #         optimizer.apply_gradients([(grads[w], self.shared_actor_critic_model.trainable_variables[w])])
                 #-----------------------------------------------
-
-                grads = tape.gradient(total_loss, self.actor_model.trainable_variables + self.critic_model.trainable_variables)
-                # actor_grads = tape.gradient(actor_losses, self.actor_model.trainable_variables)
-                for optimizer, w in zip([self.actor_optimizer_in, self.actor_optimizer_var, self.actor_optimizer_out],
-                                            [self.w_in, self.w_var, self.w_out]):
-                        optimizer.apply_gradients([(grads[:len(self.actor_model.trainable_variables)][w], self.actor_model.trainable_variables[w])])
-
-                # critic_grads = tape.gradient(critic_losses, self.critic_model.trainable_variables)
-                for optimizer, w in zip([self.critic_optimizer_in, self.critic_optimizer_var, self.critic_optimizer_out],
-                                            [self.w_in, self.w_var, self.w_out]):
-                        optimizer.apply_gradients([(grads[len(self.actor_model.trainable_variables):][w], self.critic_model.trainable_variables[w])])
+                # # actor_grads = tape.gradient(actor_losses, self.actor_model.trainable_variables)
+                # for optimizer, w in zip([self.actor_optimizer_in, self.actor_optimizer_var, self.actor_optimizer_out],
+                #                             [self.w_in, self.w_var, self.w_out]):
+                #         optimizer.apply_gradients([(grads[:len(self.actor_model.trainable_variables)][w], self.actor_model.trainable_variables[w])])
+                #
+                # # critic_grads = tape.gradient(critic_losses, self.critic_model.trainable_variables)
+                # for optimizer, w in zip([self.critic_optimizer_in, self.critic_optimizer_var, self.critic_optimizer_out],
+                #                             [self.w_in, self.w_var, self.w_out]):
+                #         optimizer.apply_gradients([(grads[len(self.actor_model.trainable_variables):][w], self.critic_model.trainable_variables[w])])
 
             # Clear the loss and reward history
             action_probs_history.clear()

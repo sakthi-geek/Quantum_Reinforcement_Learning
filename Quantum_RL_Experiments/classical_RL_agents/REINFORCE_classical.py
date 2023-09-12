@@ -4,10 +4,11 @@ import numpy as np
 from collections import defaultdict
 import matplotlib.pyplot as plt
 from tensorflow.keras import layers
-
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
 
 class REINFORCEAgent:
-    def __init__(self, env_name='CartPole-v1', seed=39, learning_rate=0.02, gamma=0.99, batch_size=16, n_episodes=2000):
+    def __init__(self, env_name='CartPole-v1', seed=39, n_inputs=4, n_hidden=[32], n_actions=2, gamma=0.99,
+                 batch_size=16, n_episodes=2000, learning_rate=0.01):
 
         # Environment -----------------------
         self.seed = seed
@@ -16,6 +17,7 @@ class REINFORCEAgent:
 
         self.state_size = self.env.observation_space.shape[0]
         self.action_size = self.env.action_space.n
+        print(self.state_size, self.action_size)
 
         np.random.seed(self.seed)
         tf.random.set_seed(self.seed)
@@ -28,14 +30,44 @@ class REINFORCEAgent:
         self.n_episodes = n_episodes
         self.state_bounds = np.array([2.4, 2.5, 0.21, 2.5])
 
+        self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
+        self.n_actions = n_actions
+
+        # Optimizer with Learning Rate Scheduler
+        lr_schedule = ExponentialDecay(
+            initial_learning_rate=0.01,
+            decay_steps=10000,  # decay the learning rate after every 10000 steps
+            decay_rate=0.99, )  # decay rate factor
         # Model ---------------------------------------
-        self.optimizer = tf.keras.optimizers.Adam(learning_rate=self.learning_rate, amsgrad=True)
-        self.model = self.build_model(self.state_size, self.action_size, self.learning_rate)
+        self.optimizer = tf.keras.optimizers.Adam(learning_rate=lr_schedule, amsgrad=True)
+        self.model = self.build_model(n_inputs=self.n_inputs, n_hidden=self.n_hidden, n_actions=self.n_actions)
 
         self.input_shape = self.model.input_shape
         self.output_shape = self.model.output_shape
         self.trainable_params = self.model.count_params()
-        print(self.input_shape, self.output_shape, self.trainable_params)
+
+        self.config_params = None
+        # print all parameters
+        print("----------------------")
+        print("Environment: ", self.env_name)
+        print("Seed: ", self.seed)
+        print("Gamma: ", self.gamma)
+        print("Number of Episodes: ", self.n_episodes)
+        print("Batch size: ", self.batch_size)
+        print("Learning Rate: ", self.learning_rate)
+        print("State Bounds: ", self.state_bounds)
+        print("Inputs: ", self.n_inputs)
+        print("hidden Layers: ", self.n_hidden)
+        print("Number of Actions: ", self.n_actions)
+        print("Model: ", self.model.summary())
+        print("Input Shape: ", self.input_shape)
+        print("Output Shape: ", self.output_shape)
+        print("Trainable Parameters: ", self.trainable_params)
+        print("lr_schedule: ", {"initial_learning_rate": lr_schedule.initial_learning_rate,
+                                "decay_steps": lr_schedule.decay_steps,
+                                "decay_rate": lr_schedule.decay_rate})
+        print("----------------------")
 
         # Metrics ---------------------------
         self.episode_reward_history = []
@@ -43,13 +75,15 @@ class REINFORCEAgent:
 
 
 
-    def build_model(self, state_size, action_size, learning_rate=0.001):
+    def build_model(self, n_inputs=4, n_hidden=[32], n_actions=2):
         """Builds a Keras model for the policy."""
         model = tf.keras.models.Sequential()
-        model.add(layers.Dense(32, input_dim=state_size, activation='relu'))
-        model.add(layers.Dense(16))
-        model.add(layers.Dense(2, activation='relu', kernel_initializer='RandomNormal'))
-        model.add(layers.Dense(action_size, activation='softmax'))
+        for i, n_nodes in enumerate(n_hidden):
+            if i == 0:
+                model.add(layers.Dense(n_nodes, input_dim=n_inputs, activation='relu'))
+            else:
+                model.add(layers.Dense(n_nodes, activation='relu'))
+        model.add(layers.Dense(n_actions, activation='softmax'))
         return model
 
     def gather_episodes(self):
@@ -118,6 +152,8 @@ class REINFORCEAgent:
 
     def train(self):
         """Train the agent."""
+        # required_consistency = 5  # The number of times the agent needs to last 500 timesteps to stop training
+
         for batch in range(self.n_episodes // self.batch_size):
             episodes = self.gather_episodes()
 
@@ -141,6 +177,14 @@ class REINFORCEAgent:
 
             if avg_rewards >= 500.0:
                 break
+
+            # # Check if the agent lasted 500 timesteps for the last 'required_consistency' episodes
+            # if len(self.episode_length_history) >= required_consistency:
+            #     last_n_episodes = self.episode_length_history[-required_consistency:]
+            #     if all(length >= 500 for length in last_n_episodes):
+            #         print("Training stopped: Agent lasted 500 timesteps consistently for {} episodes.".format(
+            #             required_consistency))
+            #         break
 
         self.episode_count = len(self.episode_reward_history)
         self.average_timesteps_per_episode = np.mean(self.episode_length_history)

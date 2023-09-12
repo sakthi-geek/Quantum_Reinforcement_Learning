@@ -18,7 +18,19 @@ import random
 from Quantum_RL_Experiments.helper import Rescaling, ReUploadingPQC
 
 class DeepQLearningQuantum:
-    def __init__(self, n_qubits=4, n_layers=5, n_actions=2, gamma=0.99, n_episodes=2000, batch_size=16):
+    def __init__(self, env_name='CartPole-v1', seed=39, n_qubits=4, n_layers=5, n_actions=2, gamma=0.99,
+                 n_episodes=2000, batch_size=16, learning_rate={"in": 0.001, "var": 0.001, "out": 0.1}):
+
+        # Set up the environment
+        # Environment -----------------------
+        self.env_name = env_name
+        self.env = gym.make(self.env_name)
+        self.seed = seed
+
+        np.random.seed(self.seed)
+        tf.random.set_seed(self.seed)
+        # random.seed(self.seed)
+
         # Hyperparameters
         self.batch_size = batch_size
         self.n_qubits = n_qubits
@@ -26,6 +38,8 @@ class DeepQLearningQuantum:
         self.n_actions = n_actions
         self.gamma = gamma
         self.n_episodes = n_episodes
+        self.learning_rate = learning_rate
+
         self.qubits = cirq.GridQubit.rect(1, n_qubits)
         self.ops = [cirq.Z(q) for q in self.qubits]
         self.observables = [self.ops[0] * self.ops[1],
@@ -39,6 +53,11 @@ class DeepQLearningQuantum:
         tf.keras.utils.plot_model(self.model, show_shapes=True, dpi=70)
         tf.keras.utils.plot_model(self.model_target, show_shapes=True, dpi=70)
 
+        self.input_shape = self.model.input_shape
+        self.output_shape = self.model.output_shape
+        self.trainable_params = self.model.count_params()
+        print(self.input_shape, self.output_shape, self.trainable_params)
+
         # Initialize replay memory and other training-related variables
         # Define replay memory
         self.max_memory_length = 10000  # Maximum replay length
@@ -50,18 +69,54 @@ class DeepQLearningQuantum:
         self.steps_per_update = 10  # Train the model every x steps
         self.steps_per_target_update = 30  # Update the target model every x steps
 
+        self.in_lr = self.learning_rate["in"]
+        self.var_lr = self.learning_rate["var"]
+        self.out_lr = self.learning_rate["out"]
         # Prepare the optimizers
-        self.optimizer_in = tf.keras.optimizers.Adam(learning_rate=0.001, amsgrad=True)
-        self.optimizer_var = tf.keras.optimizers.Adam(learning_rate=0.001, amsgrad=True)
-        self.optimizer_out = tf.keras.optimizers.Adam(learning_rate=0.1, amsgrad=True)
+        self.optimizer_in = tf.keras.optimizers.Adam(learning_rate=self.in_lr, amsgrad=True)
+        self.optimizer_var = tf.keras.optimizers.Adam(learning_rate=self.var_lr, amsgrad=True)
+        self.optimizer_out = tf.keras.optimizers.Adam(learning_rate=self.out_lr, amsgrad=True)
 
         # Assign the model parameters to each optimizer
         self.w_in, self.w_var, self.w_out = 1, 0, 2
 
-        # Set up the environment
-        self.env = gym.make("CartPole-v1")
+        self.config_params = {
+            "num_observables": len(self.observables),
+            "ops": str(self.ops),
+            "qubits": str(self.qubits),
+            "observables": str(self.observables),
+            "max_memory_length": self.max_memory_length,
+            "epsilon": self.epsilon,
+            "epsilon_min": self.epsilon_min,
+            "decay_epsilon": self.decay_epsilon,
+            "steps_per_update": self.steps_per_update,
+            "steps_per_target_update": self.steps_per_target_update
+        }
+        # print all parameters
+        print("----------------------")
+        print("Environment: ", self.env_name)
+        print("Seed: ", self.seed)
+        print("Gamma: ", self.gamma)
+        print("Number of Episodes: ", self.n_episodes)
+        print("MBatch Size: ", self.batch_size)
+        print("Learning Rate: ", self.learning_rate)
+        print("Number of Qubits: ", self.n_qubits)
+        print("Number of Layers: ", self.n_layers)
+        print("Number of Actions: ", self.n_actions)
+        print("Number of Observables: ", len(self.observables))
+        print("Qubits: ", self.qubits)
+        print("Ops: ", self.ops)
+        print("Observables: ", self.observables)
+        print("Model: ", self.model.summary())
+        print("Input Shape: ", self.input_shape)
+        print("Output Shape: ", self.output_shape)
+        print("Trainable Parameters: ", self.trainable_params)
+        print("lr_schedule: ", None)
+        print("----------------------")
 
+        # Metrics ---------------------------
         self.episode_reward_history = []
+        self.episode_length_history = []
 
         # ... further initialization as needed ...
 
@@ -153,9 +208,9 @@ class DeepQLearningQuantum:
 
     def train(self):
         """Train the agent."""
-        step_count = 0
         for episode in range(self.n_episodes):
             episode_reward = 0
+            step_count = 0
             state = self.env.reset()
 
             while True:
@@ -178,12 +233,24 @@ class DeepQLearningQuantum:
             # self.epsilon = max(self.epsilon, self.epsilon_min)
 
             self.episode_reward_history.append(episode_reward)
+            self.episode_length_history.append(step_count)
             if (episode + 1) % 10 == 0:
                 avg_rewards = np.mean(self.episode_reward_history[-10:])
                 print("Episode {}/{}, average last 10 rewards {}".format(
                     episode + 1, self.n_episodes, avg_rewards))
                 if avg_rewards >= 500.0:
                     break
+
+        self.episode_count = len(self.episode_reward_history)
+        self.average_timesteps_per_episode = np.mean(self.episode_length_history)
+        self.episode_rewards_min = np.min(self.episode_reward_history)
+        self.episode_rewards_max = np.max(self.episode_reward_history)
+        self.episode_rewards_mean = np.mean(self.episode_reward_history)
+        self.episode_rewards_median = np.median(self.episode_reward_history)
+        self.episode_rewards_std = np.std(self.episode_reward_history)
+        self.episode_rewards_iqr = np.subtract(*np.percentile(self.episode_reward_history, [75, 25]))
+        self.episode_rewards_q1 = np.percentile(self.episode_reward_history, 25)
+        self.episode_rewards_q3 = np.percentile(self.episode_reward_history, 75)
 
         self.plot_rewards()
 

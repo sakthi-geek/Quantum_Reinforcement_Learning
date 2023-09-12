@@ -66,7 +66,6 @@ class PolicyGradientQuantum:
         self.trainable_params = self.model.count_params()
         print(self.input_shape, self.output_shape, self.trainable_params)
 
-
         # Configuration parameters----------------------
         self.state_bounds = state_bounds
         self.gamma = gamma
@@ -76,6 +75,36 @@ class PolicyGradientQuantum:
         self.in_lr = learning_rate["in"]
         self.var_lr = learning_rate["var"]
         self.out_lr = learning_rate["out"]
+
+        self.config_params = {
+            "num_obsevables": len(self.observables),
+            "qubits": str(self.qubits),
+            "ops": str(self.ops),
+            "observables": str(self.observables),
+        }
+
+        # print all parameters
+        print("----------------------")
+        print("Environment: ", self.env_name)
+        print("Seed: ", self.seed)
+        print("Gamma: ", self.gamma)
+        print("Number of Episodes: ", self.n_episodes)
+        print("batch Size: ", self.batch_size)
+        print("Learning Rate: ", self.learning_rate)
+        print("State Bounds: ", self.state_bounds)
+        print("Number of Qubits: ", self.n_qubits)
+        print("Number of Layers: ", self.n_layers)
+        print("Number of Actions: ", self.n_actions)
+        print("Number of Observables: ", len(self.observables))
+        print("Qubits: ", self.qubits)
+        print("Ops: ", self.ops)
+        print("Observables: ", self.observables)
+        print("Model: ", self.model.summary())
+        print("Input Shape: ", self.input_shape)
+        print("Output Shape: ", self.output_shape)
+        print("Trainable Parameters: ", self.trainable_params)
+        print("lr_schedule: ", None)
+        print("----------------------")
 
         # Metrics ---------------------------
         self.episode_reward_history = []
@@ -238,7 +267,7 @@ class PolicyGradientQuantum:
             # Store collected rewards
             for ep_rwds in rewards:
                 self.episode_reward_history.append(np.sum(ep_rwds))
-                self.episode_length_history.append(len(ep_rwds))
+                self.episode_length_history.append(len(ep_rwds))    # TODO: check if this is correct
 
             avg_rewards = np.mean(self.episode_reward_history[-10:])
 

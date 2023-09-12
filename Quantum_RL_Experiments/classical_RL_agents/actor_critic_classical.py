@@ -6,28 +6,41 @@ from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 from collections import defaultdict
 import os
+from tensorflow.keras.optimizers.schedules import ExponentialDecay
 
 
 eps = np.finfo(np.float32).eps.item() # Smallest number such that 1.0 + eps != 1.0
 
 class ActorCriticClassical:
-    def __init__(self, gamma=0.99, n_episodes=3000, max_steps_per_episode=10000, learning_rate=0.01):
+    def __init__(self, env_name='CartPole-v1', seed=39, n_inputs=4, n_hidden=[32], n_actions=2, gamma=0.99,
+                 n_episodes=3000, max_steps_per_episode=10000, learning_rate=0.01):
+
+        # Environment -----------------------
+        self.env_name = env_name
+        self.env = gym.make(self.env_name)
+        self.seed = seed
+
+        np.random.seed(self.seed)
+        tf.random.set_seed(self.seed)
+        # random.seed(self.seed)
+
         # Configuration parameters
         self.gamma = gamma
         self.n_episodes = n_episodes
         self.max_steps_per_episode = max_steps_per_episode
         self.learning_rate = learning_rate
 
-        self.env = gym.make("CartPole-v1")
-
         #----- Model ---------------------------------------
-        num_inputs = 4
-        num_actions = 2
-        num_hidden = 128
+        self.n_inputs = n_inputs
+        self.n_hidden = n_hidden
+        self.n_actions = n_actions
 
-        inputs = layers.Input(shape=(num_inputs,))
-        common = layers.Dense(num_hidden, activation="relu")(inputs)
-        action = layers.Dense(num_actions, activation="softmax")(common)
+        inputs = layers.Input(shape=(self.n_inputs,))
+        common = inputs
+        for n_nodes in self.n_hidden:
+            common = layers.Dense(n_nodes, activation="relu")(common)
+
+        action = layers.Dense(self.n_actions, activation="softmax")(common)
         critic = layers.Dense(1)(common)
 
         self.model = keras.Model(inputs=inputs, outputs=[action, critic])
@@ -37,8 +50,37 @@ class ActorCriticClassical:
         self.trainable_params = self.model.count_params()
         print(self.input_shape, self.output_shape, self.trainable_params)
 
-        self.optimizer = keras.optimizers.Adam(learning_rate=learning_rate)
+        # Optimizer with Learning Rate Scheduler
+        lr_schedule = ExponentialDecay(
+            initial_learning_rate=learning_rate,
+            decay_steps=10000,  # decay the learning rate after every 10000 steps
+            decay_rate=0.99)  # decay rate factor
+
+        self.optimizer = keras.optimizers.Adam(learning_rate=lr_schedule)
         self.huber_loss = keras.losses.Huber()
+
+        self.config_params = None
+
+        # print all parameters
+        print("----------------------")
+        print("Environment: ", self.env_name)
+        print("Seed: ", self.seed)
+        print("Gamma: ", self.gamma)
+        print("Number of Episodes: ", self.n_episodes)
+        print("Max Steps per Episode: ", self.max_steps_per_episode)
+        print("Learning Rate: ", self.learning_rate)
+        print("State Bounds: ", None)
+        print("Inputs: ", self.n_inputs)
+        print("hidden Layers: ", self.n_hidden)
+        print("Number of Actions: ", self.n_actions)
+        print("Model: ", self.model.summary())
+        print("Input Shape: ", self.input_shape)
+        print("Output Shape: ", self.output_shape)
+        print("Trainable Parameters: ", self.trainable_params)
+        print("lr_schedule: ", {"initial_learning_rate": lr_schedule.initial_learning_rate,
+                                "decay_steps": lr_schedule.decay_steps,
+                                "decay_rate": lr_schedule.decay_rate})
+        print("----------------------")
 
         # Metrics ---------------------------
         self.episode_reward_history = []
