@@ -56,7 +56,7 @@ class DeepQLearningClassical:
         self.trainable_params = self.model.count_params()
 
         # Initialize replay memory and other variables
-        self.max_memory_length = 10000
+        self.max_memory_length = 30000
         self.replay_memory = deque(maxlen=self.max_memory_length)
         self.epsilon = 1.0
         self.epsilon_min = 0.05
@@ -74,7 +74,7 @@ class DeepQLearningClassical:
         #------------------------------------------------
         # SUCCESS (hidden layers-[32], 10000 eps)       - [(30000, 1.0, 0.05, 0.999, 10, 30)] - reward increased first and then came down and then started increasing again at 3000 episode mark and converged at 3500 episode mark
         # test [hidden layers-32] ,10000 eps)           - [(50000, 1.0, 0.05, 0.999, 10, 30)] - rewards quickly started to increase and reached the almost 500 level at 2500 episode mark, couldn't get 500 rewards for 10 consecutive episodes and then flattened out at 10 till 10000 episode
-        # test [hidden layers-32] ,10000 eps)           - [(10000, 1.0, 0.05, 0.999, 10, 30)] -
+        # test [hidden layers-32] ,10000 eps)           - [(10000, 1.0, 0.05, 0.999, 10, 30)] - rewards stayed flat at 10 till 2500 episodes with a few spikes to 100 here and there and then started increasing to almost 500 and stayed there from 3500 to 4500 episodes with oscillations and then stayed flat at 10 till 10000 episodes
         #------------------------------------------------
 
         self.config_params = None
@@ -140,7 +140,7 @@ class DeepQLearningClassical:
 
         if step_count % self.steps_per_update == 0:
             if len(self.replay_memory) < self.batch_size:
-                print("Not enough samples in replay memory to train the model.")
+                # print("Not enough samples in replay memory to train the model.")
                 return
 
             batch = random.sample(self.replay_memory, self.batch_size)
@@ -158,11 +158,11 @@ class DeepQLearningClassical:
             # print(f"Target: {target}")
             # print(f"Q Values: {q_values}")
             # print(f"Predicted Q Values: {predicted_q_values}")
-            print(f"Step Count: {step_count}, Steps Per Update: {self.steps_per_update}, Replay Memory Length: "
-                  f"{len(self.replay_memory)}, Total steps: {total_steps} - Performed Q-learning update - Loss: {loss}")
+            # print(f"Step Count: {step_count}, Steps Per Update: {self.steps_per_update}, Replay Memory Length: "
+            #       f"{len(self.replay_memory)}, Total steps: {total_steps} - Performed Q-learning update - Loss: {loss}")
 
         if step_count % self.steps_per_target_update == 0:
-            print("Updating target model weights (steps_per_target_update - {})".format(self.steps_per_target_update))
+            # print("Updating target model weights (steps_per_target_update - {})".format(self.steps_per_target_update))
             self.model_target.set_weights(self.model.get_weights())
 
     @tf.function
@@ -188,7 +188,7 @@ class DeepQLearningClassical:
         """Train the agent."""
         total_steps = 0
         for episode in range(self.n_episodes):
-            print(f"Starting Episode {episode + 1}")
+            # print(f"Starting Episode {episode + 1}")
             episode_reward = 0
             step_count = 0
             state = self.env.reset()
@@ -208,11 +208,11 @@ class DeepQLearningClassical:
                 self.update_models(step_count, total_steps)
 
                 if done:
-                    print(f"Episode {episode + 1} finished after {step_count} timesteps with reward {episode_reward}.")
+                    # print(f"Episode {episode + 1} finished after {step_count} timesteps with reward {episode_reward}.")
                     break
 
             self.epsilon = max(self.epsilon * self.decay_epsilon, self.epsilon_min)
-            print(f"Updated Epsilon: {self.epsilon}")
+            # print(f"Updated Epsilon: {self.epsilon}")
 
             self.episode_reward_history.append(episode_reward)
             self.episode_length_history.append(step_count)

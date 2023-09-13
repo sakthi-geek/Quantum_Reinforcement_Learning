@@ -318,7 +318,7 @@ if __name__ == '__main__':
 
     experiment_ids_to_skip = []#["experiment_1"]
 
-    experiment_ids_to_run = ["experiment_3"] #, "experiment_3", "experiment_5"]
+    experiment_ids_to_run = ["experiment_6a", "experiment_6b", "experiment_6c"] #, "experiment_3", "experiment_5"]
 
     print("Running experiments...")
     experiments_to_run = {exp_id: exp_config for exp_id, exp_config in selected_experiments.items()
@@ -326,7 +326,7 @@ if __name__ == '__main__':
                               (exp_id in experiment_ids_to_run if experiment_ids_to_run else True))}
     print("Final experiments to run", experiments_to_run)
 
-    run_experiments(experiments_to_run, reruns_per_experiment=1, start_from_rerun_id=4, skip_whole_training_block=False,
+    run_experiments(experiments_to_run, reruns_per_experiment=1, start_from_rerun_id=7, skip_whole_training_block=False,
                     disable_only_training_code=False)
 
 
