@@ -344,8 +344,8 @@ def calculate_agg_metrics_and_advanced_stats(select_experiment_dicts, experiment
     # Save results to CSV if required
     if save:
         file_name_suffix = f"{experiment_type}_{rl_agent}"
-        aggregate_metrics_df.to_csv(f'{file_name_suffix}_aggregate_metrics.csv', index=True)
-        advanced_stats_df.to_csv(f'{file_name_suffix}_advanced_stats.csv', index=True)
+        aggregate_metrics_df.to_csv(f'output_files/{file_name_suffix}_aggregate_metrics.csv', index=True)
+        advanced_stats_df.to_csv(f'output_files/{file_name_suffix}_advanced_stats.csv', index=True)
 
     return aggregate_metrics_df, advanced_stats_df
 
@@ -510,9 +510,9 @@ def create_hyperparameters_csv(filepaths, save=True):
     ]
 
     if save:
-        pd.DataFrame(quantum_data, columns=quantum_columns).to_csv('quantum_RL_experiments_hyperparameters.csv',
+        pd.DataFrame(quantum_data, columns=quantum_columns).to_csv('output_files/quantum_RL_experiments_hyperparameters.csv',
                                                                    index=False)
-        pd.DataFrame(classical_data, columns=classical_columns).to_csv('classical_RL_experiments_hyperparameters.csv',
+        pd.DataFrame(classical_data, columns=classical_columns).to_csv('output_files/classical_RL_experiments_hyperparameters.csv',
                                                                        index=False)
 
     print("Saved hyperparameters to CSV files")
@@ -789,7 +789,7 @@ def smooth_curve_MA(y_values, smoothing_level=20, save=False):
 
     return smoothed_values
 
-def smooth_curve(y, exp_id, smoothing_method="EMA", smoothing_level=0.9, save=True, save_file_name="smoothed_data_{}.json".format(datetime.now().strftime("%Y%m%d-%H%M%S"))):
+def smooth_curve(y, exp_id, smoothing_method="EMA", smoothing_level=0.9, save=False, save_file_name="smoothed_data_{}.json".format(datetime.now().strftime("%Y%m%d-%H%M%S"))):
     """
     Smooths a curve based on the specified smoothing method and level.
 
@@ -991,7 +991,7 @@ def plot_multiple_experiments(multi_exp_reward_histories, exp_ids, experiment_na
     plt.xticks(fontsize=text_sizes["tick_size"])
     plt.yticks(fontsize=text_sizes["tick_size"])
 
-    plot_save_file_name = "{}.png".format(plot_title)  # datetime.now().strftime("%Y%m%d-%H%M%S")
+    plot_save_file_name = "output_files/{}.png".format(plot_title)  # datetime.now().strftime("%Y%m%d-%H%M%S")
     if save:
         plt.savefig(plot_save_file_name) #, bbox_inches='tight', pad_inches=0.1)
     plt.show()

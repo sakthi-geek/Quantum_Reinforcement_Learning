@@ -1,4 +1,0 @@
-experiment_id,env_name,Number of runs,seed,rl_agent,rl_variant,n_episodes,batch_size,n_inputs,n_hidden,n_actions,gamma,learning_rate,trainable_params,max_memory_length,epsilon,epsilon_min,decay_epsilon,steps_per_update,steps_per_target_update
-experiment_1,CartPole-v1,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",policy_gradient_reinforce,classical,3000,16,4,[32],2,0.99,0.01,226,,,,,,
-experiment_3,CartPole-v1,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",deep_q_learning,classical,3000,16,4,"[32, 16]",2,0.99,0.001,722,30000,1,0.05,0.999,10,30
-experiment_5,CartPole-v1,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",actor_critic,classical,3000,16,4,[32],2,1,0.01,259,,,,,,
