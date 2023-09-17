@@ -56,35 +56,16 @@ class DeepQLearningClassical:
         self.trainable_params = self.model.count_params()
 
         # Initialize replay memory and other variables
-        self.max_memory_length = 30000
+        self.max_memory_length = 10000
         self.replay_memory = deque(maxlen=self.max_memory_length)
         self.epsilon = 1.0
-        self.epsilon_min = 0.05
-        self.decay_epsilon = 0.999 # Decay rate of epsilon greedy parameter - range - 0 to 1 - 1 means decay is not happening - 0 means decay is happening very fast
+        self.epsilon_min = 0.01
+        self.decay_epsilon = 0.99 # Decay rate of epsilon greedy parameter - range - 0 to 1 - 1 means decay is not happening - 0 means decay is happening very fast
         self.steps_per_update = 10
         self.steps_per_target_update = 30
 
-        # not working (hidden layers-[32, 32]), 10000 eps)- (50000, 1.0, 0.01, 0.995, 10, 30)] - rewards were flat at 10 for all episodes
-        # not working [hidden layers-32] ,10000 eps)     - [(30000, 1.0, 0.01, 0.998, 10, 60)] - very few initial target updates happened, rewards stayed flat at around 10 for more than 5000 eps
-        # not working [hidden layers-32] ,10000 eps)      - [(30000, 1.0, 0.01, 0.999, 10, 30)] - reward stayed flat at around 10 for 10000 episodes
-        #------------------------------------------------
-        # partially working (hidden layers-[32], 3000 eps)- [(10000, 1.0, 0.05, 0.999, 5, 30) - rewards increased from episodes 500 to 2000 (few oscillations to 10 at around 1500 eps) to reach near 500 but then fell flat to 10 after 2200 episodes and stayed there till 300 episodes
-        # partially working [hidden layers-32] ,10000 eps)- [(30000, 1.0, 0.01, 0.9995, 10, 30)] - rewards increased to almost 500 at around 2000 episodes and oscillated a lot till 3500 episode mark and then fell flat to 10 after that till 10000 episodes
-        # partially working [hidden layers-32] ,10000 eps)- [(30000, 1.0, 0.01, 0.9999, 10, 30)] - running till 10000 episodes -takes forever to converge - epsilon did not reach minimum(only got to 0.36) - steady progress in rewards towards 500 with a lot of oscillations and struggling to get - might get to it if we train it for another 10000 episodes
-        #------------------------------------------------
-        # SUCCESS (hidden layers-[32], 10000 eps)       - [(30000, 1.0, 0.05, 0.999, 10, 30)] - reward increased first and then came down and then started increasing again at 3000 episode mark and converged at 3500 episode mark
-        # test [hidden layers-32] ,10000 eps)           - [(50000, 1.0, 0.05, 0.999, 10, 30)] - rewards quickly started to increase and reached the almost 500 level at 2500 episode mark, couldn't get 500 rewards for 10 consecutive episodes and then flattened out at 10 till 10000 episode
-        # test [hidden layers-32] ,10000 eps)           - [(10000, 1.0, 0.05, 0.999, 10, 30)] - rewards stayed flat at 10 till 2500 episodes with a few spikes to 100 here and there and then started increasing to almost 500 and stayed there from 3500 to 4500 episodes with oscillations and then stayed flat at 10 till 10000 episodes
-        #------------------------------------------------
 
-        self.config_params = {
-            "max_memory_length": self.max_memory_length,
-            "epsilon": self.epsilon,
-            "epsilon_min": self.epsilon_min,
-            "decay_epsilon": self.decay_epsilon,
-            "steps_per_update": self.steps_per_update,
-            "steps_per_target_update": self.steps_per_target_update
-        }
+        self.config_params = None
         # print all parameters
         print("----------------------")
         print("Environment: ", self.env_name)
@@ -112,7 +93,8 @@ class DeepQLearningClassical:
     def generate_model_classical(self):
         """Generates a Keras model for a classical Q-function approximator."""
         model = tf.keras.models.Sequential()
-        model.add(tf.keras.layers.InputLayer(input_shape=(self.n_inputs,)))
+        model.add(tf.keras.layers.InputLayer(
+            input_shape=(self.n_inputs,)))  # Replace 4 with the dimension of your state space
         for nodes in self.n_hidden:
             model.add(tf.keras.layers.Dense(nodes, activation='relu'))
         model.add(tf.keras.layers.Dense(self.n_actions, activation='linear'))
@@ -142,14 +124,11 @@ class DeepQLearningClassical:
         self.replay_memory.append(interaction)
         return interaction['next_state'], interaction['reward'], interaction['done']
 
-    def update_models(self, step_count, total_steps):
+    def update_models(self, step_count):
         """Update models at appropriate intervals."""
-
         if step_count % self.steps_per_update == 0:
             if len(self.replay_memory) < self.batch_size:
-                # print("Not enough samples in replay memory to train the model.")
                 return
-
             batch = random.sample(self.replay_memory, self.batch_size)
 
             states = np.array([x['state'] for x in batch])
@@ -158,68 +137,45 @@ class DeepQLearningClassical:
             next_states = np.array([x['next_state'] for x in batch])
             done_flags = np.array([x['done'] for x in batch], dtype=np.float32)
 
-            # print(f"States: {states.shape}, Actions: {actions.shape}, Rewards: {rewards.shape}, "
-            #       f"Next States: {next_states.shape}, Done Flags: {done_flags.shape}")
-
-            target, q_values, predicted_q_values, loss = self.update_Q_model(states, actions, rewards, next_states, done_flags)  # Pass the pre-converted numpy arrays here
-            # print(f"Target: {target}")
-            # print(f"Q Values: {q_values}")
-            # print(f"Predicted Q Values: {predicted_q_values}")
-            # print(f"Step Count: {step_count}, Steps Per Update: {self.steps_per_update}, Replay Memory Length: "
-            #       f"{len(self.replay_memory)}, Total steps: {total_steps} - Performed Q-learning update - Loss: {loss}")
+            self.update_Q_model(states, actions, rewards, next_states,
+                                done_flags)  # Pass the pre-converted numpy arrays here
 
         if step_count % self.steps_per_target_update == 0:
-            # print("Updating target model weights (steps_per_target_update - {})".format(self.steps_per_target_update))
             self.model_target.set_weights(self.model.get_weights())
 
     @tf.function
     def update_Q_model(self, states, actions, rewards, next_states, done_flags):
         """Perform a Q-learning update using a batch of training data."""
-
         target = rewards + (1 - done_flags) * self.gamma * tf.reduce_max(self.model_target(next_states), axis=1)
-
         with tf.GradientTape() as tape:
             q_values = self.model(states)
-
             one_hot_actions = tf.one_hot(actions, depth=self.n_actions, dtype=tf.float32)
             predicted_q_values = tf.reduce_sum(q_values * one_hot_actions, axis=1)
-
             loss = tf.reduce_mean(tf.square(target - predicted_q_values))
 
         grads = tape.gradient(loss, self.model.trainable_variables)
         self.optimizer.apply_gradients(zip(grads, self.model.trainable_variables))
 
-        return target, q_values, predicted_q_values, loss
-
     def train(self):
         """Train the agent."""
-        total_steps = 0
         for episode in range(self.n_episodes):
-            # print(f"Starting Episode {episode + 1}")
             episode_reward = 0
             step_count = 0
             state = self.env.reset()
-            # print(f"Initial State: {state}")
 
             while True:
                 # Sample interaction with the environment
-                # print("Sampling interaction.")
                 state, reward, done = self.sample_interaction(state)
-                # print(f"State: {state}, Reward: {reward}, Done: {done}")
-
                 episode_reward += reward
                 step_count += 1
-                total_steps += 1
 
                 # Update models
-                self.update_models(step_count, total_steps)
+                self.update_models(step_count)
 
                 if done:
-                    # print(f"Episode {episode + 1} finished after {step_count} timesteps with reward {episode_reward}.")
                     break
 
             self.epsilon = max(self.epsilon * self.decay_epsilon, self.epsilon_min)
-            # print(f"Updated Epsilon: {self.epsilon}")
 
             self.episode_reward_history.append(episode_reward)
             self.episode_length_history.append(step_count)

@@ -14,8 +14,14 @@ import statistics
 import re
 from scipy import stats
 import pandas as pd
-from scipy.stats import ttest_ind
+from scipy.stats import ttest_ind, f, f_oneway, levene
+from scipy import stats
+# import statsmodels.api as sm
+# from statsmodels.formula.api import ols
+# from statsmodels.stats.power import FTestAnovaPower
+from statsmodels.stats.power import FTestAnovaPower, TTestIndPower
 import glob
+import math
 
 import matplotlib.pyplot as plt
 import json, csv
@@ -44,6 +50,22 @@ def save_to_json(data, filename):
     with open(filename, 'w') as f:
         # properly formatted
         json.dump(data, f, indent=4)
+
+def atof(text):
+    try:
+        retval = float(text)
+    except ValueError:
+        retval = text
+    return retval
+
+def natural_keys(text):
+    '''
+    alist.sort(key=natural_keys) sorts in human order
+    http://nedbatchelder.com/blog/200712/human_sorting.html
+    (See Toothy's implementation in the comments)
+    float regex comes from https://stackoverflow.com/a/12643073/190597
+    '''
+    return [atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
 
 def confidence_interval(data, confidence=0.95):
     """
@@ -93,6 +115,34 @@ def cohen_d(x, y):
     pooled_std = np.sqrt(((nx - 1) * np.std(x, ddof=1) ** 2 + (ny - 1) * np.std(y, ddof=1) ** 2) / (nx + ny - 2))
     return (mean_x - mean_y) / pooled_std
 
+
+def welchs_anova(*groups):
+    # Number of groups
+    k = len(groups)
+
+    # Sample sizes, means, and variances for each group
+    n = np.array([len(g) for g in groups])
+    means = np.array([np.mean(g) for g in groups])
+    variances = np.array([np.var(g, ddof=1) for g in groups])
+
+    # Grand mean and pooled variance
+    grand_mean = np.sum(n * means) / np.sum(n)
+    pooled_var = np.sum((n - 1) * variances) / np.sum(n - 1)
+
+    # Welch's ANOVA F-statistic
+    numerator = np.sum((n * (means - grand_mean) ** 2) / (variances + pooled_var))
+    denominator = np.sum((n - 1) * variances / (variances + pooled_var))
+
+    f_statistic = numerator / denominator
+
+    # Degrees of freedom for Welch's ANOVA
+    dfn = k - 1
+    dfd = (3 * (k - 1) * np.sum(1 / (n - 1))) / (np.sum(1 / (n - 1)) ** 2 - np.sum(1 / (n - 1) ** 2))
+
+    # p-value
+    p_value = 1 - f.cdf(f_statistic, dfn, dfd)
+
+    return f_statistic, p_value
 
 def deep_dict_compare(d1, d2, ignored_keys):
     """Recursive function to deeply compare two dictionaries while ignoring specified keys."""
@@ -145,7 +195,7 @@ def update_json_files(filepaths, save=False):
 
         print(f"Updated {filepath}")
 
-def calculate_comparitive_metrics(all_experiment_dicts, experiment_type, rl_agent, save=False):
+def calculate_agg_metrics_and_advanced_stats(select_experiment_dicts, experiment_type, rl_agent, experiment_names, save=False):
     """
     Perform comprehensive comparative metrics, uncertainties, and statistical tests on selected experiments.
 
@@ -156,69 +206,148 @@ def calculate_comparitive_metrics(all_experiment_dicts, experiment_type, rl_agen
         Type of experiments to compare: "Classical vs Quantum" or "Quantum N layer"
     rl_agent: str
         Reinforcement Learning agent type: "Policy_Gradient_REINFORCE", "Deep_Q_Learning", "Actor_Critic"
+    experiment_names: dict with exp_ids as keys and exp_names as values
+
+    Keyword Arguments:
     save: bool, optional
+
+    Returns:
         Whether to save the output DataFrame to a CSV file.
 
     Returns:
     None
     """
 
-    # Filter experiments based on experiment_type and rl_agent
-    filtered_experiment_dicts = [exp for exp in all_experiment_dicts if
-                                 exp['experiment_config']['experiment_id'] in select_experiment_ids]
-
     # Create empty DataFrames to store results
-    basic_metrics_df = pd.DataFrame()
-    comparative_stats_df = pd.DataFrame()
+    advanced_stats_df = pd.DataFrame()
+    agg_metrics = defaultdict(list)
+    headers = []
 
-    for exp_dict in experiment_dicts:
+    for exp_dict in select_experiment_dicts:
         exp_id = exp_dict['experiment_config']['experiment_id']
         metrics = exp_dict['metrics']
 
-        # Calculate metrics and uncertainties
-        mean_reward = np.mean(metrics['episode_reward_history'])
-        lower_bound, upper_bound = confidence_interval(metrics['episode_reward_history'])
-        std_dev_mean = standard_deviation_of_mean(np.std(metrics['episode_reward_history'], ddof=1),
-                                                  len(metrics['episode_reward_history']))
-        cv = coefficient_of_variation(mean_reward, np.std(metrics['episode_reward_history'], ddof=1))
+        headers.append(exp_id)
+        agg_metrics["Experiment_Name"].append(experiment_names[exp_id])
+        agg_metrics["N_Episodes"].append(int(np.mean(metrics['episode_count'])))
+        agg_metrics["Training_Time"].append(metrics['training_time'])
+        agg_metrics["Training_Time_per_Episode"].append(metrics['training_time'] / np.mean(metrics['episode_count']))
+        agg_metrics["Total_Reward"].append(np.sum(metrics['episode_reward_history']))
+        agg_metrics["Efficiency"].append(np.sum(metrics['episode_reward_history']) / metrics['training_time'])
+        agg_metrics["Mean_Reward"].append(metrics['agg_rewards_mean'])
+        agg_metrics["Median_Reward"].append(np.median(metrics['episode_reward_history']))
+        agg_metrics["Standard_Deviation"].append(metrics['agg_rewards_pooled_std_dev'])
+        agg_metrics["Skewness"].append(stats.skew(metrics['episode_reward_history']))
+        agg_metrics["Kurtosis"].append(stats.kurtosis(metrics['episode_reward_history']))
+        agg_metrics["Quartiles(Q1,Q2,Q3)"].append(np.quantile(metrics['episode_reward_history'], [0.25, 0.5, 0.75]))
+        agg_metrics["IQR"].append(np.quantile(metrics['episode_reward_history'], 0.75) - np.quantile(metrics['episode_reward_history'], 0.25))
+        agg_metrics["Confidence_Interval"].append(metrics['agg_rewards_confidence_interval'])
+        agg_metrics["SDOM"].append(metrics['agg_rewards_sdom'])
+        agg_metrics["Coeff_of_Variation"].append(metrics['agg_rewards_cv'])
 
-        # Store basic metrics and uncertainties in a temporary DataFrame
-        temp_df = pd.DataFrame({
-            'Experiment_ID': [exp_id],
-            'Mean_Reward': [mean_reward],
-            'Lower_CI': [lower_bound],
-            'Upper_CI': [upper_bound],
-            'SDOM': [std_dev_mean],
-            'CV': [cv]
-        })
+    aggregate_metrics_df = pd.DataFrame.from_dict(agg_metrics, orient='index', columns=headers)
 
-        # Append to the basic metrics DataFrame
-        basic_metrics_df = pd.concat([basic_metrics_df, temp_df], ignore_index=True)
+    print("Aggregate metrics calculated successfully!")
 
-    # Perform t-tests and comparative statistics
-    t_test_results = {}
-    for i in range(len(experiment_dicts)):
-        for j in range(i + 1, len(experiment_dicts)):
-            exp1_id = experiment_dicts[i]['experiment_config']['experiment_id']
-            exp2_id = experiment_dicts[j]['experiment_config']['experiment_id']
-            rewards_1 = experiment_dicts[i]['metrics']['episode_reward_history']
-            rewards_2 = experiment_dicts[j]['metrics']['episode_reward_history']
+    stat_test_results = {}
+    if experiment_type == 'Quantum vs Classical' and len(select_experiment_dicts) == 2:
 
-            t_stat, p_value = perform_t_test(rewards_1, rewards_2)
-            d = cohen_d(rewards_1, rewards_2)
+        exp1_id = select_experiment_dicts[0]['experiment_config']['experiment_id']
+        exp2_id = select_experiment_dicts[1]['experiment_config']['experiment_id']
+        rewards_1 = select_experiment_dicts[0]['metrics']['episode_reward_history']
+        rewards_2 = select_experiment_dicts[1]['metrics']['episode_reward_history']
 
-            t_test_results[f"{exp1_id} vs {exp2_id}"] = [t_stat, p_value, d]
+        # Perform t-tests for hypothesis testing
+        t_stat, p_value = perform_t_test(rewards_1, rewards_2)
 
-    comparative_stats_df = pd.DataFrame.from_dict(t_test_results, orient='index',
-                                                  columns=['T-Statistic', 'P-Value', 'Cohen_d'])
+        # Calculate Cohen's d for effect size
+        d_value = cohen_d(rewards_1, rewards_2)
+
+        # Perform power analysis
+        effect_size = np.abs(d_value)
+        alpha = 0.05  # significance level
+        power = 0.8  # desired power
+        ratio = len(rewards_1) / len(rewards_2)
+        sample_size = TTestIndPower().solve_power(effect_size=effect_size, alpha=alpha, power=power,
+                                                  ratio=ratio)
+
+        stat_test_results["T-Statisic"] = [np.round(t_stat, 4)]
+        stat_test_results["P-Value"] = [np.round(p_value, 4)]
+        stat_test_results["Cohen_d"] = [np.round(d_value, 4)]
+        stat_test_results["Required_Sample_Size"] = [np.round(sample_size)]
+
+        advanced_stats_df = pd.DataFrame.from_dict(stat_test_results, orient='columns')
+        advanced_stats_df.index = [f"{experiment_type}-{rl_agent}"]
+
+        print("Advanced stats calculated successfully!")
+
+    elif experiment_type == "Quantum N Layer" and len(select_experiment_dicts) > 2:
+        # Perform one-way ANOVA
+        rewards_list = [exp_dict['metrics']['episode_reward_history'] for exp_dict in select_experiment_dicts]
+        levene_statistic, levene_p_value = levene(*rewards_list)
+        print("Levene's Test --- Statistic:", np.round(levene_statistic,4), ", p-value:", np.round(levene_p_value,4))
+        if levene_p_value < 0.05:
+            print("Levene's Test --- Reject null hypothesis: Variances are not equal. Use Welch's ANOVA")
+            f_stat, p_value = welchs_anova(*rewards_list)
+        else:
+            print("Levene's Test --- Accept null hypothesis: Variances are equal. Use regular ANOVA")
+            f_stat, p_value = f_oneway(*rewards_list)
+
+        # Calculate effect size
+        # Number of groups
+        k = len(rewards_list)
+        # Total number of observations
+        N = sum(len(rewards) for rewards in rewards_list)
+        # Calculate the mean of all observations
+        n_per_group = [len(rewards) for rewards in rewards_list]
+        # Calculate the mean of each group
+        mean_per_group = [np.mean(rewards) for rewards in rewards_list]
+        # # Calculate the grand mean
+        grand_mean = np.mean([reward for rewards in rewards_list for reward in rewards])
+        # Calculate between-group sum of squares
+        ss_between = sum(len(group) * ((mean - grand_mean) ** 2) for group, mean in zip(rewards_list, mean_per_group))
+        # Calculate within-group sum of squares
+        ss_within = sum(sum((obs - mean) ** 2 for obs in group) for group, mean in zip(rewards_list, mean_per_group))
+        # Calculate eta squared
+        eta_squared = ss_between / (ss_between + ss_within)
+        # Calculate omega squared
+        omega_squared = (ss_between - (k - 1) * (ss_within / (N - k))) / (
+                    ss_between + ss_within + (ss_within / (N - k)))
+
+        # power analysis for more than two groups ANOVA  (use omega_squared)
+
+        # Initialize parameters
+        effect_size = omega_squared  # Effect size
+        alpha = 0.05  # Significance level
+        power = 0.8  # Desired power level
+        k = len(select_experiment_dicts)  # Number of groups
+
+        # Perform power analysis
+        anova_power = FTestAnovaPower()
+        sample_size = anova_power.solve_power(effect_size=effect_size, alpha=alpha, power=power, k_groups=k)
+
+        stat_test_results["F-Statistic"] = [np.round(f_stat, 4)]
+        stat_test_results["P-Value (ANOVA)"] = [np.round(p_value, 4)]
+        stat_test_results["Eta_Squared"] = [np.round(eta_squared, 4)]
+        stat_test_results["Omega_Squared"] = [np.round(omega_squared, 4)]
+        stat_test_results["Required_Sample_Size"] = [np.round(sample_size)]
+
+        advanced_stats_df = pd.DataFrame.from_dict(stat_test_results, orient='columns')
+        advanced_stats_df.index = [f"{experiment_type}-{rl_agent}"]
+
+        print("Advanced stats calculated successfully!")
+
+    else:
+        print("Invalid experiment type or number of experiments!")
+
 
     # Save results to CSV if required
     if save:
         file_name_suffix = f"{experiment_type}_{rl_agent}"
-        basic_metrics_df.to_csv(f'basic_metrics_{file_name_suffix}.csv', index=False)
-        comparative_stats_df.to_csv(f'comparative_stats_{file_name_suffix}.csv', index=False)
+        aggregate_metrics_df.to_csv(f'{file_name_suffix}_aggregate_metrics.csv', index=True)
+        advanced_stats_df.to_csv(f'{file_name_suffix}_advanced_stats.csv', index=True)
 
-    return basic_metrics_df, comparative_stats_df
+    return aggregate_metrics_df, advanced_stats_df
 
 
 def flatten_dict(d, parent_key='', sep='_', special_keys=None, ignore_keys=None):
@@ -275,7 +404,7 @@ def rearrange_fieldnames(all_fieldnames, main_keys):
     return rearranged_fieldnames
 
 
-def write_to_csv(json_files, output_csv_file, special_fields=None, sort_keys=None, ignore_keys=None):
+def combine_jsons_and_write_to_csv(json_files, output_csv_file, special_fields=None, sort_keys=None, ignore_keys=None):
     """
     Write multiple JSON files to a single CSV file.
     Parameters:
@@ -322,21 +451,71 @@ def write_to_csv(json_files, output_csv_file, special_fields=None, sort_keys=Non
 
     print("Saved all experiments metrics into a single csv file")
 
-def atof(text):
-    try:
-        retval = float(text)
-    except ValueError:
-        retval = text
-    return retval
 
-def natural_keys(text):
-    '''
-    alist.sort(key=natural_keys) sorts in human order
-    http://nedbatchelder.com/blog/200712/human_sorting.html
-    (See Toothy's implementation in the comments)
-    float regex comes from https://stackoverflow.com/a/12643073/190597
-    '''
-    return [atof(c) for c in re.split(r'[+-]?([0-9]+(?:[.][0-9]*)?|[.][0-9]+)', text) ]
+def create_hyperparameters_csv(filepaths, save=True):
+    quantum_data = []
+    classical_data = []
+
+    # Iterate through each file path to read JSON data
+    for filepath in filepaths:
+        print(filepath)
+        with open(filepath, 'r') as f:
+            data = json.load(f)
+
+        config = data['experiment_config']
+        model_details = data['model_details']
+        other_params = data.get('other_parameters', {})
+
+        # Common fields
+        common_fields = [
+            config['experiment_id'], config['env_name'], config['seed'],
+            config['rl_agent'], config['rl_variant'], config['n_episodes'],
+            config['batch_size'], config['n_actions'], config['gamma'],
+            config['learning_rate'], model_details['trainable_params'],
+            other_params.get('max_memory_length', None), other_params.get('epsilon', None),
+            other_params.get('epsilon_min', None), other_params.get('decay_epsilon', None),
+            other_params.get('steps_per_update', None),
+            other_params.get('steps_per_target_update', None)
+        ]
+
+        # Append to the corresponding list based on 'rl_variant'
+        if config['rl_variant'] == 'quantum':
+            quantum_data.append(
+                common_fields[:7] + [
+                    config['n_qubits'], config['qpc_architecture'], config['n_layers']
+                ] + common_fields[7:]
+            )
+        else:
+            classical_data.append(
+                common_fields[:7] + [
+                    config['n_inputs'], config['n_hidden']
+                ] + common_fields[7:]
+            )
+
+    # Create DataFrames and save them as CSV files
+    quantum_columns = [
+        "experiment_id", "env_name", "seed", "rl_agent", "rl_variant",
+        "n_episodes", "batch_size", "n_qubits", "qpc_architecture",
+        "n_layers", "n_actions", "gamma", "learning_rate",
+        "trainable_params", "max_memory_length", "epsilon", "epsilon_min",
+        "decay_epsilon", "steps_per_update", "steps_per_target_update"
+    ]
+
+    classical_columns = [
+        "experiment_id", "env_name", "seed", "rl_agent", "rl_variant",
+        "n_episodes", "batch_size", "n_inputs", "n_hidden", "n_actions",
+        "gamma", "learning_rate", "trainable_params", "max_memory_length",
+        "epsilon", "epsilon_min", "decay_epsilon", "steps_per_update",
+        "steps_per_target_update"
+    ]
+
+    if save:
+        pd.DataFrame(quantum_data, columns=quantum_columns).to_csv('quantum_RL_experiments_hyperparameters.csv',
+                                                                   index=False)
+        pd.DataFrame(classical_data, columns=classical_columns).to_csv('classical_RL_experiments_hyperparameters.csv',
+                                                                       index=False)
+
+    print("Saved hyperparameters to CSV files")
 
 
 def filter_files(directory, substring, extension):
@@ -500,24 +679,74 @@ def combine_experiment_outcomes(experiment_outcomes_list: List[Dict[str, Any]], 
                 combined_dict[main_key] = sub_dict
 
     # Convert defaultdict to dict
-    combined_dict = {k: dict(v) for k, v in combined_dict.items()}
+    combined_dict = {k: (dict(v) if v is not None else None) for k, v in combined_dict.items()}
 
+    temp_dict = {}
     # Average numerical metrics and keep unique config values
+    all_runs_np = None
     for main_key, sub_dict in combined_dict.items():
         if main_key in ['metrics', 'timings']:
 
             if isinstance(sub_dict, dict):
                 for sub_key, value_list in sub_dict.items():
                     if all(isinstance(v, (int, float)) for v in value_list):
-                        if combining_strategy == "mean":
-                            combined_dict[main_key][sub_key] = round(statistics.mean(value_list))
-                        elif combining_strategy == "median":
-                            combined_dict[main_key][sub_key] = round(statistics.median(value_list))
+                        if sub_key in ['episode_count', 'episode_rewards_min', 'episode_rewards_max', 'episode_rewards_mean', 'episode_rewards_median', 'episode_rewards_std',
+                                      'episode_rewards_q1', 'episode_rewards_q3', 'episode_rewards_iqr']:
+                            means = combined_dict[main_key]['episode_rewards_mean']
+                            std_devs = combined_dict[main_key]['episode_rewards_std']
+                            n_per_run = combined_dict[main_key]['episode_count']
+
+                            N = sum(combined_dict[main_key]['episode_count'])
+
+                            # Calculate overall mean
+                            overall_mean = np.average(means, weights=n_per_run)
+
+                            # Calculate pooled standard deviation
+                            numerator = sum((n - 1) * (std_dev ** 2) for n, std_dev in zip(n_per_run, std_devs))
+                            pooled_std_dev = math.sqrt(numerator / (N - len(n_per_run)))
+
+                            # Calculate Q1 and Q3
+                            agg_q1 = np.mean(combined_dict[main_key]['episode_rewards_q1'])
+                            agg_q3 = np.mean(combined_dict[main_key]['episode_rewards_q3'])
+
+                            # Calculate IQR
+                            agg_iqr = agg_q3 - agg_q1
+
+                            # Calculate SDOM
+                            sdom = pooled_std_dev / math.sqrt(len(n_per_run))
+
+                            # Calculate Coefficient of Variation (CV)
+                            cv = (pooled_std_dev / overall_mean) * 100
+
+                            # Calculate Confidence Interval
+                            confidence_level = 0.95
+                            z_value = stats.norm.ppf(1 - (1 - confidence_level) / 2)
+                            margin_error = z_value * (pooled_std_dev / math.sqrt(N))
+                            confidence_interval = (np.round(overall_mean - margin_error,2), np.round(overall_mean + margin_error,2))
+
+                            #store agg metrics in temp dict
+                            temp_dict[main_key] = {}
+                            temp_dict[main_key]['agg_rewards_mean'] = np.round(overall_mean,2)
+                            temp_dict[main_key]['agg_rewards_pooled_std_dev'] = np.round(pooled_std_dev,2)
+                            temp_dict[main_key]['agg_rewards_q1'] = int(np.round(agg_q1))
+                            temp_dict[main_key]['agg_rewards_q3'] = int(np.round(agg_q3))
+                            temp_dict[main_key]['agg_rewards_iqr'] = int(np.round(agg_iqr))
+                            temp_dict[main_key]['agg_rewards_sdom'] = np.round(sdom,2)
+                            temp_dict[main_key]['agg_rewards_cv'] = np.round(cv,2)
+                            temp_dict[main_key]['agg_rewards_confidence_interval'] = confidence_interval
+
+                        else:
+                            if combining_strategy == "mean":
+                                combined_dict[main_key][sub_key] = round(statistics.mean(value_list))
+                            elif combining_strategy == "median":
+                                combined_dict[main_key][sub_key] = round(statistics.median(value_list))
+
                     elif all(isinstance(v, list) for v in value_list):
                         max_length = max(len(v) for v in value_list)
                         # Use the plateau method to extend each list to the maximum length
                         padded_value_list = [v + [v[-1]] * (max_length - len(v)) if v else [0] * max_length for v in
                                              value_list]
+
                         if combining_strategy == "mean":
                             combined_dict[main_key][sub_key] = [round(statistics.mean(vals)) for vals in zip(*padded_value_list)]
                         elif combining_strategy == "median":
@@ -525,6 +754,9 @@ def combine_experiment_outcomes(experiment_outcomes_list: List[Dict[str, Any]], 
                     else:
                         combined_dict[main_key][sub_key] = list(set(value_list))
 
+    for main_key, sub_dict in temp_dict.items():
+        for sub_key, value in sub_dict.items():
+            combined_dict[main_key][sub_key] = value
 
     if save:
         file_name = "combined_experiment_outcomes_{}_{}.json".format(combining_strategy, datetime.now().strftime("%Y%m%d-%H%M%S"))
@@ -736,7 +968,7 @@ def plot_multiple_experiments(multi_exp_reward_histories, exp_ids, experiment_na
                                         smoothing_level=smoothing_level, save=False)
 
         # Plot original curve with light shade
-        plt.plot(exp_rewards, color=color, alpha=0.3, linewidth=1)    # label=f"{exp_id} Original"
+        plt.plot(exp_rewards, color=color, alpha=0.1, linewidth=1)    # label=f"{exp_id} Original"
         if len(exp_ids) == 2 and "Quantum" in experiment_names[exp_id]:
             legend_str = " ".join(experiment_names[exp_id].split(" ")[:-2])
         else:
@@ -750,7 +982,7 @@ def plot_multiple_experiments(multi_exp_reward_histories, exp_ids, experiment_na
         plt.plot(smoothed_rewards, label=f"{legend_str}", color=color, linewidth=2)
 
     plt.xlabel('Episodes', fontsize=text_sizes["label_size"])
-    plt.ylabel('Reward', fontsize=text_sizes["label_size"])
+    plt.ylabel('Averaged Rewards', fontsize=text_sizes["label_size"])
     plt.title(plot_title, fontsize=text_sizes["title_size"])
     # plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.1), ncol=4, fontsize=text_sizes["legend_size"])
     plt.legend(loc='lower right', fontsize=text_sizes["legend_size"])

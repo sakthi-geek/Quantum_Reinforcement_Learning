@@ -1,0 +1,10 @@
+experiment_id,Number of runs,seed,rl_agent,n_layers,gamma,learning_rate,trainable_params
+experiment_2a,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",policy_gradient,5,1,"{'in': 0.1, 'var': 0.01, 'out': 0.1}",94
+experiment_2b,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",policy_gradient,4,1,"{'in': 0.1, 'var': 0.01, 'out': 0.1}",78
+experiment_2c,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",policy_gradient,3,1,"{'in': 0.1, 'var': 0.01, 'out': 0.1}",62
+experiment_4a,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",deep_q_learning,5,0.99,"{'in': 0.001, 'var': 0.001, 'out': 0.1}",94
+experiment_4b,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",deep_q_learning,4,0.99,"{'in': 0.001, 'var': 0.001, 'out': 0.1}",78
+experiment_4c,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",deep_q_learning,3,0.99,"{'in': 0.001, 'var': 0.001, 'out': 0.1}",62
+experiment_6a,5,"[139, 239, 339, 439, 539]",actor_critic,5,1,0.01,188
+experiment_6b,5,"[139, 239, 339, 439, 539]",actor_critic,4,1,0.01,156
+experiment_6c,5,"[139, 239, 339, 439, 539]",actor_critic,3,1,0.01,124

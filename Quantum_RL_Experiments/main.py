@@ -326,8 +326,8 @@ if __name__ == '__main__':
                               (exp_id in experiment_ids_to_run if experiment_ids_to_run else True))}
     print("Final experiments to run", experiments_to_run)
 
-    run_experiments(experiments_to_run, reruns_per_experiment=1, start_from_rerun_id=7, skip_whole_training_block=False,
-                    disable_only_training_code=False)
+    run_experiments(experiments_to_run, reruns_per_experiment=1, start_from_rerun_id=9, skip_whole_training_block=False,
+                    disable_only_training_code=True)
 
 
 
