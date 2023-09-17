@@ -1,0 +1,17 @@
+,experiment_2a,experiment_2b,experiment_2c
+Experiment_Name,Policy Gradient REINFORCE - Quantum 5 Layers,Policy Gradient REINFORCE - Quantum 4 Layers,Policy Gradient REINFORCE - Quantum 3 Layers
+N_Episodes,600,702,880
+Training_Time,390,372,402
+Training_Time_per_Episode,0.65,0.5296127562642369,0.45681818181818185
+Total_Reward,346963,308319,1114330
+Efficiency,889.648717948718,828.8145161290323,2771.9651741293533
+Mean_Reward,238.27,221.39,211.73
+Median_Reward,415.0,387.0,470.0
+Standard_Deviation,177.99,174.4,154.19
+Skewness,-0.833919494202616,-0.627216452293778,-1.8276650726635912
+Kurtosis,-0.8395548514133537,-1.1961821610533698,1.9436525032960104
+"Quartiles(Q1,Q2,Q3)",[214.75 415.   484.  ],[131. 387. 440.],[420. 470. 480.]
+IQR,269.25,309.0,60.0
+Confidence_Interval,"[233.76, 242.77]","[217.32, 225.47]","[208.51, 214.95]"
+SDOM,56.29,55.15,48.76
+Coeff_of_Variation,74.7,78.78,72.82

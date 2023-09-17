@@ -1,0 +1,17 @@
+,experiment_4a,experiment_4b,experiment_4c
+Experiment_Name,Deep Q Learning - Quantum 5 Layers,Deep Q Learning - Quantum 4 Layers,Deep Q Learning - Quantum 3 Layers
+N_Episodes,1326,1724,2302
+Training_Time,1868,1803,2200
+Training_Time_per_Episode,1.4087481146304677,1.0458236658932714,0.9556907037358818
+Total_Reward,1055946,850757,647559
+Efficiency,565.2815845824412,471.85635052689963,294.345
+Mean_Reward,165.11,123.4,129.7
+Median_Reward,430.0,394.0,195.5
+Standard_Deviation,153.98,121.74,127.33
+Skewness,-1.1101430764632088,-0.6690267351200735,0.0011681800100788145
+Kurtosis,-0.1844073849415313,-1.388864885165916,-1.541269520489918
+"Quartiles(Q1,Q2,Q3)",[272. 430. 471.],[ 71. 394. 407.],[ 93.  195.5 368. ]
+IQR,199.0,336.0,275.0
+Confidence_Interval,"[162.49, 167.73]","[121.58, 125.21]","[128.05, 131.34]"
+SDOM,48.69,38.5,40.26
+Coeff_of_Variation,93.26,98.66,98.17
