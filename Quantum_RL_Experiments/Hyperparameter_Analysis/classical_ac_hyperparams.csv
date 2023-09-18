@@ -1,0 +1,2 @@
+,Number of Runs,Seed,Gamma,Learning Rate,Model Architecture
+Classical_AC,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",1,0.01,"[4, [32], [2, 1]]"

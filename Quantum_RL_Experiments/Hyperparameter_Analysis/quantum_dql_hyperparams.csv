@@ -1,0 +1,2 @@
+,Number of Runs,Seed,Gamma,Learning Rate,Model Architecture,max_memory_length,epsilon,epsilon_min,decay_epsilon,steps_per_update,steps_per_target_update,N Layers,Trainable Params
+Quantum_DQN,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",0.99,"{'in': 0.001, 'var': 0.001, 'out': 0.1}","[4, 'ReUploadingPQC', 2]",10000,1.0,0.01,0.99,10,30,"[5, 4, 3]","[94, 78, 62]"

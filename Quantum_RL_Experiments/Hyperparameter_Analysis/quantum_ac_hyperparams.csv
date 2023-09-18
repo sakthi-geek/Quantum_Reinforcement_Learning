@@ -1,0 +1,2 @@
+,Number of Runs,Seed,Gamma,Learning Rate,Model Architecture,N Layers,Trainable Params
+Quantum_AC,5,"[139, 239, 339, 439, 539]",1,0.01,"[[4, 4], 'ReUploadingPQC', [2, 2]]","[5, 4, 3]","[188, 156, 124]"

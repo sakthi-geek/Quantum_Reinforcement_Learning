@@ -1,0 +1,16 @@
+{
+    "experiment_id": "experiment_6b",
+    "rl_agent": "actor_critic",
+    "rl_variant": "quantum",
+    "qpc_architecture": "ReUploadingPQC",
+    "n_qubits": 4,
+    "n_layers": 4,
+    "n_actions": 2,
+    "n_episodes": 3000,
+    "batch_size": 16,
+    "gamma": 1,
+    "learning_rate": 0.01,
+    "max_steps_per_episode": 10000,
+    "exploration_strategy": "epsilon_greedy",
+    "epsilon_decay": "exponential"
+}

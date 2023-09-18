@@ -1,0 +1,16 @@
+{
+    "experiment_id": "experiment_1",
+    "rl_agent": "policy_gradient_reinforce",
+    "rl_variant": "classical",
+    "n_episodes": 3000,
+    "batch_size": 16,
+    "gamma": 0.99,
+    "learning_rate": 0.01,
+    "n_inputs": 4,
+    "n_hidden": [
+        32
+    ],
+    "n_actions": 2,
+    "exploration_strategy": "epsilon_greedy",
+    "epsilon_decay": "exponential"
+}

@@ -1,0 +1,2 @@
+,Number of Runs,Seed,Gamma,Learning Rate,Model Architecture,max_memory_length,epsilon,epsilon_min,decay_epsilon,steps_per_update,steps_per_target_update
+Classical_DQN,10,"[139, 239, 339, 439, 539, 639, 739, 839, 939, 1039]",0.99,0.001,"[4, [32, 16], 2]",30000,1.0,0.05,0.999,10,30

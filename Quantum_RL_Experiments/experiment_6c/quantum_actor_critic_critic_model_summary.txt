@@ -1,0 +1,16 @@
+Model: "model_5"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input (InputLayer)          [(None, 4)]               0         
+                                                                 
+ re-uploading_PQC (ReUploadi  (None, 2)                60        
+ ngPQC)                                                          
+                                                                 
+ Q-values (Sequential)       (None, 2)                 2         
+                                                                 
+=================================================================
+Total params: 62
+Trainable params: 62
+Non-trainable params: 0
+_________________________________________________________________

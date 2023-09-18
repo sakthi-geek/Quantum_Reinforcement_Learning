@@ -1,0 +1,17 @@
+Model: "model_4"
+_________________________________________________________________
+ Layer (type)                Output Shape              Param #   
+=================================================================
+ input (InputLayer)          [(None, 4)]               0         
+                                                                 
+ re-uploading_PQC (ReUploadi  (None, 1)                60        
+ ngPQC)                                                          
+                                                                 
+ observables-policy (Sequent  (None, 2)                2         
+ ial)                                                            
+                                                                 
+=================================================================
+Total params: 62
+Trainable params: 62
+Non-trainable params: 0
+_________________________________________________________________

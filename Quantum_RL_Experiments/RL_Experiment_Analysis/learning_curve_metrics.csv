@@ -1,0 +1,13 @@
+,Mean Convergence Point,Std of Convergence Point,Mean Initial Convergence Point,Mean Post-Initial-Convergence Std,Convergence Ratio
+Classical REINFORCE,793.6,264.58,372.3,117.21,1.0
+Quantum REINFORCE(5 layer),600.0,223.34,293.6,119.61,1.0
+Quantum REINFORCE(4 layer),702.4,179.24,325.7,127.06,1.0
+Quantum REINFORCE(3 layer),880.0,654.2,370.7,124.86,1.0
+Classical DQN,1862.5,405.27,1367.88,140.01,0.8
+Quantum DQN(5 layer),1140.0,649.03,594.67,125.49,0.9
+Quantum DQN(4 layer),1177.14,108.59,904.57,144.22,0.7
+Quantum DQN(3 layer),1836.67,585.79,1029.67,151.33,0.6
+Classical Actor Critic,343.0,77.21,182.2,154.69,1.0
+Quantum Actor Critic(5 layer),1036.0,239.38,428.8,138.7,1.0
+Quantum Actor Critic(4 layer),1492.0,393.31,543.2,136.08,1.0
+Quantum Actor Critic(3 layer),1206.0,281.75,374.8,137.38,1.0

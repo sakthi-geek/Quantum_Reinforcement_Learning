@@ -1,0 +1,13 @@
+,Mean,Median,Std,Min,Max
+Classical REINFORCE,8578.41,8935.29,1174.67,6959.49,10473.39
+Quantum REINFORCE(5 layer),355.75,354.0,28.24,306.31,398.74
+Quantum REINFORCE(4 layer),420.04,420.56,42.71,372.22,486.4
+Quantum REINFORCE(3 layer),452.44,451.37,38.37,395.77,513.61
+Classical DQN,52.13,50.38,7.1,43.97,67.79
+Quantum DQN(5 layer),114.88,122.26,14.5,93.99,137.85
+Quantum DQN(4 layer),117.23,115.32,7.96,104.62,130.32
+Quantum DQN(3 layer),135.23,134.85,6.95,122.03,145.43
+Classical Actor Critic,378.21,376.47,12.02,360.21,405.02
+Quantum Actor Critic(5 layer),14.5,14.45,0.33,13.99,15.03
+Quantum Actor Critic(4 layer),15.3,15.01,0.88,14.52,16.89
+Quantum Actor Critic(3 layer),18.37,18.06,1.12,17.24,20.49
