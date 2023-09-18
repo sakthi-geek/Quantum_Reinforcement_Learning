@@ -22,6 +22,7 @@ from scipy import stats
 from statsmodels.stats.power import FTestAnovaPower, TTestIndPower
 import glob
 import math
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import json, csv
@@ -195,6 +196,125 @@ def update_json_files(filepaths, save=False):
 
         print(f"Updated {filepath}")
 
+
+def extract_hyperparameters(all_experiment_outcomes_dict: Dict[str, str], save=False):
+    """
+    Extract hyperparameters from the experiment outcome dicts and store them in dataframes.
+
+    Parameters:
+    - experiment_filepaths: Dictionary containing experiment_ids as keys and filepaths of combined outcome dicts as values
+    - save: Boolean to indicate whether to save the dataframes as CSV files
+
+    Returns:
+    - Seven dataframes containing hyperparameters
+    """
+    # Initialize dataframes
+    constant_hyperparams_df = pd.DataFrame()
+    classical_pg_hyperparams_df = pd.DataFrame()
+    classical_dql_hyperparams_df = pd.DataFrame()
+    classical_ac_hyperparams_df = pd.DataFrame()
+    quantum_pg_hyperparams_df = pd.DataFrame()
+    quantum_dql_hyperparams_df = pd.DataFrame()
+    quantum_ac_hyperparams_df = pd.DataFrame()
+
+    for exp_id, filepath in all_experiment_outcomes_dict.items():
+        with open(filepath, 'r') as f:
+            exp_data = json.load(f)
+
+        # Extract data
+        config = exp_data['experiment_config']
+        if config["rl_agent"].lower() == "Deep_Q_Learning".lower():
+            other_params = exp_data.get('other_parameters', {})
+            # remove specific keys if substr in key matches any in the list
+            other_params = {k: v for k, v in other_params.items() if not any(substring in k for substring in ['ops', 'qubit', 'observable'])}
+        else:
+            other_params = {}
+        model_details = exp_data['model_details']
+
+
+        if config["rl_agent"].lower() == "Actor_Critic".lower():
+            if config['rl_variant'].lower() == 'quantum':
+                model_input = [model_details['input_shape'][0][1], model_details['input_shape'][1][1]]
+            else:
+                model_input = model_details['input_shape'][1]
+            model_output = [model_details['output_shape'][0][1], model_details['output_shape'][1][1]]
+        else:
+            model_input = model_details['input_shape'][1]
+            model_output = model_details['output_shape'][1]
+        # Extract model architecture
+        if config['rl_variant'] == 'classical':
+            model_architecture = [model_input, config["n_hidden"], model_output]
+        else:
+            model_architecture = [model_input, config['qpc_architecture'], model_output]
+
+        # Prepare hyperparameter data for the current experiment
+        hyperparam_data = {
+            'Number of Runs': 10 if exp_id not in ['experiment_6a', 'experiment_6b', 'experiment_6c'] else 5,
+            # calculate seed list - len(list) = number of runs seed = run_id*100 + 39
+            'Seed': [run_id * 100 + 39 for run_id in range(1, 11)] if exp_id not in ['experiment_6a', 'experiment_6b', 'experiment_6c'] else [run_id * 100 + 39 for run_id in range(1, 6)],
+            'Gamma': config['gamma'],
+            'Learning Rate': config['learning_rate'],
+            'Model Architecture': model_architecture,
+            **other_params
+        }
+
+
+        if config['rl_variant'].lower() == 'quantum'.lower():
+            hyperparam_data['N Layers'] = [5,4,3]
+
+        # Categorize and save to respective dataframe
+        if config['rl_variant'].lower() == 'classical'.lower():
+            if config['rl_agent'].lower() == 'Policy_Gradient_REINFORCE'.lower():
+                classical_pg_hyperparams_df = pd.DataFrame.from_dict({"Classical_PG": hyperparam_data}, orient='index')
+                print(classical_pg_hyperparams_df)
+            elif config['rl_agent'].lower() == 'Deep_Q_Learning'.lower():
+                classical_dql_hyperparams_df = pd.DataFrame.from_dict({"Classical_DQN": hyperparam_data}, orient='index')
+            elif config['rl_agent'].lower() == 'Actor_Critic'.lower():
+                classical_ac_hyperparams_df = pd.DataFrame.from_dict({"Classical_AC": hyperparam_data}, orient='index')
+        else:
+            if config['rl_agent'].lower() == 'Policy_Gradient'.lower():
+                hyperparam_data['Trainable Params'] = [94,78,62]
+                quantum_pg_hyperparams_df = pd.DataFrame.from_dict({"Quantum_PG": hyperparam_data}, orient='index')
+            elif config['rl_agent'].lower() == 'Deep_Q_Learning'.lower():
+                hyperparam_data['Trainable Params'] = [94,78,62]
+                quantum_dql_hyperparams_df = pd.DataFrame.from_dict({"Quantum_DQN": hyperparam_data}, orient='index')
+            elif config['rl_agent'].lower() == 'Actor_Critic'.lower():
+                hyperparam_data['Trainable Params'] = [188,156,124]
+                quantum_ac_hyperparams_df = pd.DataFrame.from_dict({"Quantum_AC": hyperparam_data}, orient='index')
+
+        # Save constant hyperparameters (only once, assuming they are the same for all experiments)
+        if constant_hyperparams_df.empty:
+            constant_hyperparams_df = pd.DataFrame.from_dict({
+                "All RL experiments": {
+                    'Env Name': config['env_name'],
+                    'Number of Episodes': config['n_episodes'],
+                    'Batch Size': config['batch_size']
+                }
+            }, orient='index')
+
+    # Save dataframes as CSV files if required
+    if save:
+        Path("Hyperparameter_Analysis").mkdir(parents=True, exist_ok=True)
+        constant_hyperparams_df.to_csv('Hyperparameter_Analysis/constant_hyperparams.csv')
+        classical_pg_hyperparams_df.to_csv('Hyperparameter_Analysis/classical_pg_hyperparams.csv')
+        classical_dql_hyperparams_df.to_csv('Hyperparameter_Analysis/classical_dql_hyperparams.csv')
+        classical_ac_hyperparams_df.to_csv('Hyperparameter_Analysis/classical_ac_hyperparams.csv')
+        quantum_pg_hyperparams_df.to_csv('Hyperparameter_Analysis/quantum_pg_hyperparams.csv')
+        quantum_dql_hyperparams_df.to_csv('Hyperparameter_Analysis/quantum_dql_hyperparams.csv')
+        quantum_ac_hyperparams_df.to_csv('Hyperparameter_Analysis/quantum_ac_hyperparams.csv')
+
+    return (
+        constant_hyperparams_df,
+        classical_pg_hyperparams_df,
+        classical_dql_hyperparams_df,
+        classical_ac_hyperparams_df,
+        quantum_pg_hyperparams_df,
+        quantum_dql_hyperparams_df,
+        quantum_ac_hyperparams_df
+    )
+
+
+
 def calculate_agg_metrics_and_advanced_stats(select_experiment_dicts, experiment_type, rl_agent, experiment_names, save=False):
     """
     Perform comprehensive comparative metrics, uncertainties, and statistical tests on selected experiments.
@@ -231,14 +351,14 @@ def calculate_agg_metrics_and_advanced_stats(select_experiment_dicts, experiment
         agg_metrics["Experiment_Name"].append(experiment_names[exp_id])
         agg_metrics["N_Episodes"].append(int(np.mean(metrics['episode_count'])))
         agg_metrics["Training_Time"].append(metrics['training_time'])
-        agg_metrics["Training_Time_per_Episode"].append(metrics['training_time'] / np.mean(metrics['episode_count']))
+        agg_metrics["Training_Time_per_Episode"].append(np.round(metrics['training_time'] / np.mean(metrics['episode_count']), 2))
         agg_metrics["Total_Reward"].append(np.sum(metrics['episode_reward_history']))
-        agg_metrics["Efficiency"].append(np.sum(metrics['episode_reward_history']) / metrics['training_time'])
+        agg_metrics["Efficiency"].append(np.round(np.sum(metrics['episode_reward_history']) / metrics['training_time'],2))
         agg_metrics["Mean_Reward"].append(metrics['agg_rewards_mean'])
         agg_metrics["Median_Reward"].append(np.median(metrics['episode_reward_history']))
         agg_metrics["Standard_Deviation"].append(metrics['agg_rewards_pooled_std_dev'])
-        agg_metrics["Skewness"].append(stats.skew(metrics['episode_reward_history']))
-        agg_metrics["Kurtosis"].append(stats.kurtosis(metrics['episode_reward_history']))
+        agg_metrics["Skewness"].append(np.round(stats.skew(metrics['episode_reward_history']),2))
+        agg_metrics["Kurtosis"].append(np.round(stats.kurtosis(metrics['episode_reward_history']),2))
         agg_metrics["Quartiles(Q1,Q2,Q3)"].append(np.quantile(metrics['episode_reward_history'], [0.25, 0.5, 0.75]))
         agg_metrics["IQR"].append(np.quantile(metrics['episode_reward_history'], 0.75) - np.quantile(metrics['episode_reward_history'], 0.25))
         agg_metrics["Confidence_Interval"].append(metrics['agg_rewards_confidence_interval'])
@@ -348,6 +468,148 @@ def calculate_agg_metrics_and_advanced_stats(select_experiment_dicts, experiment
         advanced_stats_df.to_csv(f'output_files/{file_name_suffix}_advanced_stats.csv', index=True)
 
     return aggregate_metrics_df, advanced_stats_df
+
+
+
+def moving_average(data, window_size):
+    """Calculate the moving average of a given 1D numpy array."""
+    return np.convolve(data, np.ones(window_size) / window_size, mode='valid')
+
+def find_robust_convergence_point(rewards, window_size=20, std_threshold=5, reward_threshold=None, reward_threshold_factor=0.8):
+    """
+    Find the point of convergence based on a rolling window and standard deviation threshold.
+    Also checks if the rewards in the stable window are reasonably high.
+    Parameters:
+    - rewards: List of rewards across episodes
+    - window_size: Size of the rolling window
+    - std_threshold: Standard deviation threshold for stability
+    - reward_threshold_factor: Factor of maximum reward to set as a threshold for meaningful convergence
+    - reward_threshold: Reward threshold for convergence
+    Returns:
+    - Convergence point or None if not found
+    """
+    ma_rewards = moving_average(rewards, window_size)
+    if reward_threshold is None:
+        reward_threshold = np.max(rewards) * reward_threshold_factor  # Set a meaningful reward threshold
+    for i in range(len(ma_rewards) - window_size):
+        std_window = ma_rewards[i:i + window_size]
+        if np.std(std_window) < std_threshold and np.mean(std_window) >= reward_threshold:
+            return i + window_size  # Return the end of the window as the convergence point
+
+    return None  # No meaningful convergence point found
+
+
+def find_initial_convergence_point(rewards, reward_threshold=500):
+    """
+    Find the point of initial convergence based on a reward threshold.
+    Parameters:
+    - rewards: List of rewards across episodes
+    - reward_threshold: Reward threshold for convergence
+    Returns:
+    - Convergence point or None if not found
+    """
+    for i in range(len(rewards)):
+        if rewards[i] >= reward_threshold:
+            return i+1
+    return None    # No meaningful convergence point found
+
+
+def calculate_metrics_with_descriptive_stats(experiment_filepaths: Dict[str, List[str]], exp_names_dict, save=False):
+    """Analyze RL experiments with improved metrics for learning curve."""
+    # Initialize dictionaries to replace DataFrames
+    avg_reward_per_episode_metrics = {}
+    convergence_time_metrics = {}
+    computational_complexity_metrics = {}
+    learning_curve_metrics = {}
+    efficiency_metrics = {}
+
+    for exp_id, filepaths in experiment_filepaths.items():
+        exp_name = exp_names_dict[exp_id]
+
+        avg_rewards_per_episode_list = []
+        initial_convergence_time_list = []
+        convergence_time_list = []
+        post_initial_convergence_std_list = []
+        training_time_list = []
+        efficiency_list = []
+
+        for filepath in filepaths:
+            print(filepath)
+            with open(filepath, 'r') as f:
+                exp_data = json.load(f)
+
+            n_episodes = exp_data['experiment_config']['n_episodes']
+            rewards = np.array(exp_data['metrics']['episode_reward_history'])
+            episodes = exp_data['metrics']['episode_count']
+            training_time = exp_data['metrics']['training_time']
+
+            avg_rewards_per_episode_list.append(np.mean(rewards))
+            training_time_list.append(training_time)
+            efficiency_list.append(np.sum(rewards) / training_time)
+
+            initial_convergence_point = find_initial_convergence_point(rewards, reward_threshold=500)
+            if episodes < n_episodes:  # Experiment was terminated early due to convergence
+                initial_convergence_time_list.append(initial_convergence_point)
+                post_initial_convergence_std_list.append(np.std(rewards[initial_convergence_point:]))
+                convergence_time_list.append(episodes)
+
+        # Compute and store metrics for this experiment
+        avg_reward_per_episode_metrics[exp_name] = {
+            'Mean': round(np.mean(avg_rewards_per_episode_list), 2),
+            'Median': round(np.median(avg_rewards_per_episode_list), 2),
+            'Std': round(np.std(avg_rewards_per_episode_list), 2),
+            'Min': round(np.min(avg_rewards_per_episode_list), 2),
+            'Max': round(np.max(avg_rewards_per_episode_list), 2),
+            '25th Percentile': round(np.percentile(avg_rewards_per_episode_list, 25), 2),
+            '75th Percentile': round(np.percentile(avg_rewards_per_episode_list, 75), 2)
+        }
+
+        convergence_time_metrics[exp_name] = {
+            'Mean': round(np.mean(convergence_time_list), 2) if convergence_time_list else None,
+            'Median': round(np.median(convergence_time_list), 2) if convergence_time_list else None,
+            'Std': round(np.std(convergence_time_list), 2) if convergence_time_list else None,
+            'Min': round(np.min(convergence_time_list), 2) if convergence_time_list else None,
+            'Max': round(np.max(convergence_time_list), 2) if convergence_time_list else None
+        }
+
+        computational_complexity_metrics[exp_name] = {
+            'Mean Time (Training Phase)': round(np.mean(training_time_list), 2),
+            'Std': round(np.std(training_time_list), 2)
+        }
+
+        learning_curve_metrics[exp_name] = {
+            'Mean Convergence Point': round(np.mean(convergence_time_list), 2) if convergence_time_list else None,
+            'Std of Convergence Point': round(np.std(convergence_time_list), 2) if convergence_time_list else None,
+            'Mean Initial Convergence Point': round(np.mean(initial_convergence_time_list), 2) if initial_convergence_time_list else None,
+            'Mean Post-Initial-Convergence Std': round(np.mean(post_initial_convergence_std_list), 2) if post_initial_convergence_std_list else None,
+            'Convergence Ratio': round(np.round(len(convergence_time_list)/len(filepaths), 2), 2)  # Rounded twice for better precision
+        }
+
+        efficiency_metrics[exp_name] = {
+            'Mean': round(np.mean(efficiency_list), 2),
+            'Median': round(np.median(efficiency_list), 2),
+            'Std': round(np.std(efficiency_list), 2),
+            'Min': round(np.min(efficiency_list), 2),
+            'Max': round(np.max(efficiency_list), 2)
+        }
+
+    # Convert dictionaries to DataFrames
+    avg_reward_per_episode_df = pd.DataFrame.from_dict(avg_reward_per_episode_metrics, orient='index')
+    convergence_time_df = pd.DataFrame.from_dict(convergence_time_metrics, orient='index')
+    computational_complexity_df = pd.DataFrame.from_dict(computational_complexity_metrics, orient='index')
+    learning_curve_df = pd.DataFrame.from_dict(learning_curve_metrics, orient='index')
+    efficiency_df = pd.DataFrame.from_dict(efficiency_metrics, orient='index')
+
+    # Save metrics as CSV files if required
+    if save:
+        Path("RL_Experiment_Analysis").mkdir(parents=True, exist_ok=True)
+        avg_reward_per_episode_df.to_csv('RL_Experiment_Analysis/avg_reward_per_episode_metrics.csv')
+        convergence_time_df.to_csv('RL_Experiment_Analysis/convergence_time_metrics.csv')
+        computational_complexity_df.to_csv('RL_Experiment_Analysis/computational_complexity_metrics.csv')
+        learning_curve_df.to_csv('RL_Experiment_Analysis/learning_curve_metrics.csv')
+        efficiency_df.to_csv('RL_Experiment_Analysis/efficiency_metrics.csv')
+
+    return avg_reward_per_episode_df, convergence_time_df, computational_complexity_df, learning_curve_df, efficiency_df
 
 
 def flatten_dict(d, parent_key='', sep='_', special_keys=None, ignore_keys=None):
@@ -604,7 +866,7 @@ def filter_files_with_subdir_levels(base_dir, subdirs_with_levels, file_substrin
         if match_found:
             # Filter filenames based on substring and extension
             for filename in filenames:
-                if file_substring in filename and filename.endswith(extension):
+                if file_substring.lower() in filename.lower() and filename.endswith(extension):
                     filtered_files.append(os.path.join(dirpath, filename))
 
     return filtered_files
@@ -995,7 +1257,6 @@ def plot_multiple_experiments(multi_exp_reward_histories, exp_ids, experiment_na
     if save:
         plt.savefig(plot_save_file_name) #, bbox_inches='tight', pad_inches=0.1)
     plt.show()
-
 
 
 class NumpyEncoder(json.JSONEncoder):

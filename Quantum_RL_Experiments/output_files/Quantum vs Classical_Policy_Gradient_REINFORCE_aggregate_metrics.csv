@@ -2,14 +2,14 @@
 Experiment_Name,Policy Gradient REINFORCE - Classical,Policy Gradient REINFORCE - Quantum 5 Layers
 N_Episodes,793,600
 Training_Time,21,390
-Training_Time_per_Episode,0.026461693548387098,0.65
+Training_Time_per_Episode,0.03,0.65
 Total_Reward,485791,346963
-Efficiency,23132.904761904763,889.648717948718
+Efficiency,23132.9,889.65
 Mean_Reward,235.13,238.27
 Median_Reward,444.0,415.0
 Standard_Deviation,173.92,177.99
-Skewness,-0.9654998031314088,-0.833919494202616
-Kurtosis,-0.6960177612077283,-0.8395548514133537
+Skewness,-0.97,-0.83
+Kurtosis,-0.7,-0.84
 "Quartiles(Q1,Q2,Q3)",[231. 444. 472.],[214.75 415.   484.  ]
 IQR,241.0,269.25
 Confidence_Interval,"[231.3, 238.95]","[233.76, 242.77]"
